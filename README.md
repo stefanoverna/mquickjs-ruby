@@ -11,9 +11,13 @@ Perfect for running untrusted JavaScript code with guaranteed safety - evaluate 
 
 - [Features](#features)
 - [Installation](#installation)
+  - [System Requirements](#system-requirements)
+  - [From RubyGems](#from-rubygems)
+  - [From Source](#from-source)
 - [Quick Start](#quick-start)
 - [Usage Guide](#usage-guide)
   - [Basic Execution](#basic-execution)
+  - [Passing Data to Scripts](#passing-data-to-scripts)
   - [Memory & CPU Limits](#memory--cpu-limits)
   - [Console Output](#console-output)
   - [HTTP Requests](#http-requests-experimental)
@@ -35,49 +39,76 @@ Perfect for running untrusted JavaScript code with guaranteed safety - evaluate 
 
 ### Security-First Design
 
-✅ **Strict Memory Limits** - Fixed memory allocation, no dynamic growth
-✅ **CPU Timeout Enforcement** - Configurable execution time limits
-✅ **Sandboxed Execution** - Isolated from file system and network
-✅ **Console Output Limits** - Prevent memory exhaustion via console.log
-✅ **HTTP Security Controls** - Whitelist, rate limiting, IP blocking
-✅ **No Dangerous APIs** - No eval(), no file I/O, no arbitrary code loading
+- **Strict Memory Limits** - Fixed memory allocation, no dynamic growth
+- **CPU Timeout Enforcement** - Configurable execution time limits
+- **Sandboxed Execution** - Isolated from file system and network
+- **Console Output Limits** - Prevent memory exhaustion via console.log
+- **HTTP Security Controls** - Whitelist, rate limiting, IP blocking
+- **No Dangerous APIs** - No eval(), no file I/O, no arbitrary code loading
 
 ### Production-Ready
 
-✅ **Native C Extension** - High performance with minimal overhead
-✅ **Zero Runtime Dependencies** - Pure Ruby + C, no external services
-✅ **Comprehensive Test Coverage** - 129+ tests ensuring reliability
-✅ **Thread-Safe** - Safe for concurrent execution
-✅ **Memory Efficient** - Minimal memory footprint (50KB default)
+- **Native C Extension** - High performance with minimal overhead
+- **Zero Runtime Dependencies** - Pure Ruby + C, no external services
+- **Comprehensive Test Coverage** - 129+ tests ensuring reliability
+- **Thread-Safe** - Safe for concurrent execution
+- **Memory Efficient** - Minimal memory footprint (50KB default)
 
 ## Installation
 
-Add this line to your application's Gemfile:
+### System Requirements
+
+- Ruby development headers
+- C compiler (`gcc` or `clang`)
+- `make`
+
+**Ubuntu/Debian:**
+```bash
+sudo apt-get install ruby-dev build-essential
+```
+
+**macOS:**
+```bash
+xcode-select --install
+```
+
+### From RubyGems
+
+Add to your Gemfile:
 
 ```ruby
 gem 'mquickjs'
 ```
 
-And then execute:
+Then run:
 
 ```bash
-$ bundle install
+bundle install
 ```
 
-Or install it yourself:
+Or install directly:
 
 ```bash
-$ gem install mquickjs
+gem install mquickjs
 ```
 
-### Build Prerequisites
+### From Source
 
-The gem requires [mquickjs](https://github.com/bellard/mquickjs) source code during installation. The gem's `extconf.rb` handles downloading it automatically, or you can provide it manually:
+All mquickjs source files are included in the repository - no separate checkout needed.
 
 ```bash
-# Optional: Clone mquickjs source (automatically done during gem install)
-git clone https://github.com/bellard/mquickjs.git /tmp/mquickjs
+# Clone the repository
+git clone https://github.com/yourusername/mquickjs-ruby.git
+cd mquickjs-ruby
+
+# Build and test
+rake
 ```
+
+This will:
+- Clean previous builds
+- Compile the extension
+- Run all tests
 
 ## Quick Start
 
@@ -154,7 +185,7 @@ result.value  # => 15
 - Arrays (including nested arrays)
 - Hashes (including nested hashes)
 
-Variables persist across `eval()` calls in the same sandbox.
+Variables persist across `eval()` calls in the same sandbox. See [test/set_variable_test.rb](test/set_variable_test.rb) for comprehensive usage examples.
 
 ### Memory & CPU Limits
 
@@ -216,7 +247,7 @@ puts result.console_truncated?  # => false (output fit within limit)
 
 ### HTTP Requests (Experimental)
 
-**⚠️ Note**: The native `fetch()` implementation is currently experiencing issues. Use the preprocessor approach instead:
+**Note:** The native `fetch()` implementation is currently experiencing issues. Use the preprocessor approach instead:
 
 ```ruby
 require 'mquickjs'
@@ -259,7 +290,7 @@ MQuickJS uses [MicroQuickJS](https://bellard.org/mquickjs/), an extremely minima
 
 ### Language Features
 
-#### ✅ Supported (ES5-ish)
+#### Supported (ES5-ish)
 
 - Variables: `var` declarations
 - Functions: function declarations and expressions
@@ -271,9 +302,9 @@ MQuickJS uses [MicroQuickJS](https://bellard.org/mquickjs/), an extremely minima
 - `try`/`catch`/`finally`
 - Regular expressions (basic)
 
-#### ❌ Not Supported
+#### Not Supported
 
-- **No ES6+ features**:
+- **No ES6+ features:**
   - No `let`, `const`
   - No arrow functions `() =>`
   - No template literals `` `string ${var}` ``
@@ -282,18 +313,18 @@ MQuickJS uses [MicroQuickJS](https://bellard.org/mquickjs/), an extremely minima
   - No classes (use prototypes)
   - No `Symbol`, `Map`, `Set`, `WeakMap`, `WeakSet`
 
-- **No async/await or Promises**:
+- **No async/await or Promises:**
   - All code executes synchronously
   - No `async`/`await`
   - No `Promise`
   - No `setTimeout`/`setInterval`
 
-- **No module system**:
+- **No module system:**
   - No `import`/`export`
   - No `require()`
   - No dynamic `import()`
 
-- **No Node.js/Browser APIs**:
+- **No Node.js/Browser APIs:**
   - No `process`, `Buffer`, `fs`, `path`, etc.
   - No DOM (`document`, `window`, etc.)
   - No `XMLHttpRequest`, `fetch()` (except via HTTP preprocessor)
@@ -305,42 +336,42 @@ MicroQuickJS includes a minimal standard library:
 
 ```javascript
 // Math object
-Math.sqrt(16)    // ✅ Available
-Math.random()    // ✅ Available
-Math.floor(3.7)  // ✅ Available
+Math.sqrt(16)    // Available
+Math.random()    // Available
+Math.floor(3.7)  // Available
 
 // JSON
-JSON.parse('{"a":1}')     // ✅ Available
-JSON.stringify({a: 1})    // ✅ Available
+JSON.parse('{"a":1}')     // Available
+JSON.stringify({a: 1})    // Available
 
 // String methods
-"hello".toUpperCase()     // ✅ Available
-"hello".substring(0, 2)   // ✅ Available
-"hello".split("")         // ✅ Available
+"hello".toUpperCase()     // Available
+"hello".substring(0, 2)   // Available
+"hello".split("")         // Available
 
 // Array methods
-[1,2,3].map(function(x) { return x * 2 })  // ✅ Available
-[1,2,3].filter(function(x) { return x > 1 })  // ✅ Available
-[1,2,3].reduce(function(a,b) { return a + b }, 0)  // ✅ Available
+[1,2,3].map(function(x) { return x * 2 })  // Available
+[1,2,3].filter(function(x) { return x > 1 })  // Available
+[1,2,3].reduce(function(a,b) { return a + b }, 0)  // Available
 
 // Object methods
-Object.keys({a:1, b:2})   // ✅ Available
+Object.keys({a:1, b:2})   // Available
 
 // Date (basic - no new Date())
-Date.now()                // ✅ Available
+Date.now()                // Available
 
 // console
-console.log("message")    // ✅ Available (captured by sandbox)
+console.log("message")    // Available (captured by sandbox)
 
 // Global functions
-parseInt("42")            // ✅ Available
-parseFloat("3.14")        // ✅ Available
-isNaN(NaN)                // ✅ Available
+parseInt("42")            // Available
+parseFloat("3.14")        // Available
+isNaN(NaN)                // Available
 ```
 
 ### Code Examples
 
-#### ✅ Good (Will Work)
+#### Good (Will Work)
 
 ```javascript
 // Use var, not let/const
@@ -365,34 +396,34 @@ Object.keys(obj).forEach(function(key) {
 });
 ```
 
-#### ❌ Bad (Will Not Work)
+#### Bad (Will Not Work)
 
 ```javascript
-// ❌ let/const not supported
+// let/const not supported
 let x = 10;        // SyntaxError
 const y = 20;      // SyntaxError
 
-// ❌ Arrow functions not supported
+// Arrow functions not supported
 [1,2,3].map(x => x * 2);  // SyntaxError
 
-// ❌ Template literals not supported
+// Template literals not supported
 var name = "World";
 console.log(`Hello ${name}`);  // SyntaxError
 
-// ❌ Destructuring not supported
+// Destructuring not supported
 var {a, b} = {a: 1, b: 2};  // SyntaxError
 
-// ❌ Async/await not supported
+// Async/await not supported
 async function fetchData() {  // SyntaxError
   await fetch('/api/data');
 }
 
-// ❌ Classes not supported
+// Classes not supported
 class User {  // SyntaxError
   constructor(name) { this.name = name; }
 }
 
-// ❌ Promises not supported
+// Promises not supported
 new Promise(function(resolve) {  // Error: Promise not defined
   resolve(42);
 });
@@ -788,6 +819,20 @@ Execute JavaScript code in the sandbox.
 result = sandbox.eval("Math.sqrt(16)")
 ```
 
+### Sandbox#set_variable(name, value)
+
+Set a global variable in the sandbox from Ruby.
+
+**Parameters:**
+- `name` (String): Variable name
+- `value` (Object): Ruby value (nil, boolean, number, string, array, or hash)
+
+**Example:**
+```ruby
+sandbox.set_variable("config", { debug: true, max_items: 100 })
+sandbox.eval("config.debug")  # => true
+```
+
 ### MQuickJS::Result
 
 Result object returned by `eval()` operations.
@@ -861,7 +906,7 @@ result = MQuickJS.eval(processed)
 
 ### Running Benchmarks
 
-The gem includes a comprehensive benchmark suite. Run it with:
+The gem includes a comprehensive benchmark suite:
 
 ```bash
 # Run all benchmarks
@@ -879,7 +924,7 @@ rake benchmark:console     # Console output
 
 ### Benchmark Results
 
-**Test Environment**: Ruby 3.3.6, Linux x86_64
+**Test Environment:** Ruby 3.3.6, Linux x86_64
 
 #### Simple Operations (1000 iterations)
 ```
@@ -894,7 +939,7 @@ Boolean operations:              0.000000   0.000000   0.000000 (  0.002071)
 Typeof operator:                 0.010000   0.000000   0.010000 (  0.002301)
 ```
 
-**Performance**: ~1-4μs per simple operation, ideal for high-throughput scenarios.
+**Performance:** ~1-4μs per simple operation, ideal for high-throughput scenarios.
 
 #### Computation (100 iterations)
 ```
@@ -907,7 +952,7 @@ Array sum (1000 elements):       0.010000   0.000000   0.010000 (  0.009723)
 Prime check (n=1000):            0.000000   0.000000   0.000000 (  0.000894)
 ```
 
-**Performance**: Handles complex computations efficiently. Recursive fibonacci(15) takes ~40μs, iterative approach is 3x faster.
+**Performance:** Handles complex computations efficiently. Recursive fibonacci(15) takes ~40μs, iterative approach is 3x faster.
 
 #### JSON Operations (1000 iterations)
 ```
@@ -920,7 +965,7 @@ JSON.stringify (nested):         0.010000   0.000000   0.010000 (  0.008326)
 JSON round-trip:                 0.000000   0.000000   0.000000 (  0.008575)
 ```
 
-**Performance**: ~3-9μs per JSON operation. Excellent for webhook processing and data transformations.
+**Performance:** ~3-9μs per JSON operation. Excellent for webhook processing and data transformations.
 
 #### Array Operations (500 iterations)
 ```
@@ -936,7 +981,7 @@ Array.join:                      0.000000   0.000000   0.000000 (  0.002375)
 Array chaining:                  0.010000   0.000000   0.010000 (  0.010141)
 ```
 
-**Performance**: Array methods run in 8-25μs for 100 elements. Sorting is slower (~89μs) but still performant.
+**Performance:** Array methods run in 8-25μs for 100 elements. Sorting is slower (~89μs) but still performant.
 
 #### Sandbox Overhead (1000 iterations)
 ```
@@ -950,16 +995,16 @@ Comparison: Reuse vs Create New
   New sandbox each time:         0.000000   0.000000   0.000000 (  0.005082)
 ```
 
-**Performance**: Sandbox creation takes ~29-46μs. Reusing sandboxes is ~3x faster for repeated evaluations (10μs vs 31μs per eval).
+**Performance:** Sandbox creation takes ~29-46μs. Reusing sandboxes is ~3x faster for repeated evaluations (10μs vs 31μs per eval).
 
 ### Performance Characteristics
 
-- **Sandbox creation**: ~29μs (reusable for multiple evaluations)
-- **Simple eval**: ~1-4μs per operation
-- **JSON operations**: ~3-9μs per operation
-- **Array operations**: ~8-25μs for 100 elements
-- **Memory overhead**: Minimal (sandboxes are lightweight)
-- **Thread-safe**: Yes (each sandbox is independent)
+- **Sandbox creation:** ~29μs (reusable for multiple evaluations)
+- **Simple eval:** ~1-4μs per operation
+- **JSON operations:** ~3-9μs per operation
+- **Array operations:** ~8-25μs for 100 elements
+- **Memory overhead:** Minimal (sandboxes are lightweight)
+- **Thread-safe:** Yes (each sandbox is independent)
 
 ### Optimization Tips
 
@@ -982,7 +1027,7 @@ Comparison: Reuse vs Create New
    [1,2,3,4,5].map { |x| sandbox.eval("#{x} * 2").value }
    ```
 
-3. **Use appropriate memory limits**:
+3. **Use appropriate memory limits:**
    ```ruby
    # Small scripts: use minimal memory
    MQuickJS::Sandbox.new(memory_limit: 10_000)  # 10KB
@@ -993,7 +1038,16 @@ Comparison: Reuse vs Create New
 
 ## Troubleshooting
 
-### Common Issues
+### Build Issues
+
+If tests crash or compilation fails:
+
+```bash
+rake clean
+rake
+```
+
+### Common Runtime Issues
 
 #### Syntax Errors with Modern JavaScript
 
@@ -1003,10 +1057,10 @@ Comparison: Reuse vs Create New
 
 **Solution:** Use ES5 equivalents:
 ```javascript
-// ❌ Arrow function
+// Arrow function
 [1,2,3].map(x => x * 2)
 
-// ✅ Function expression
+// Function expression
 [1,2,3].map(function(x) { return x * 2 })
 ```
 
@@ -1208,7 +1262,7 @@ engine.load_plugin(<<~JS)
       total: total - discount
     };
   }
-JS)
+JS
 
 result = engine.call_plugin_function("processOrder", {
   items: [{ price: 50, quantity: 3 }]
@@ -1230,14 +1284,8 @@ cd mquickjs-ruby
 # Install dependencies
 bundle install
 
-# Clone mquickjs source
-git clone https://github.com/bellard/mquickjs.git /tmp/mquickjs
-
-# Compile the extension
-bundle exec rake compile
-
-# Run tests
-bundle exec rake test
+# Build and test
+rake
 ```
 
 ### Running Tests
@@ -1261,12 +1309,7 @@ The gem is available as open source under the terms of the [MIT License](https:/
 
 - **MicroQuickJS**: Created by Fabrice Bellard - https://bellard.org/mquickjs/
 - **QuickJS**: The original JavaScript engine - https://bellard.org/quickjs/
-- Gem maintained by [Your Name]
 
 ## Security
 
 For security issues, please email security@example.com instead of using the issue tracker.
-
----
-
-**Made with ❤️ by the Ruby community**
