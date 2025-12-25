@@ -14,12 +14,23 @@ High-performance JavaScript sandbox for Ruby using native C extension.
 
 ## Building
 
+### Prerequisites
+
+The extension requires the mquickjs source code to be available in `/tmp/mquickjs`:
+
+```bash
+# Clone mquickjs repository (required for compilation)
+git clone https://github.com/bellard/mquickjs.git /tmp/mquickjs
+```
+
+### Compilation
+
 ```bash
 # Generate Makefile
 cd ext/mquickjs
 ruby extconf.rb
 
-# Compile extension  
+# Compile extension
 make
 
 # Copy to lib directory
@@ -43,6 +54,8 @@ ruby -I lib test/http_executor_test.rb  # 6 HTTP executor tests (19 assertions)
 - ✅ JavaScript sandbox (memory limits, timeouts, console.log)
 - ✅ HTTP configuration (whitelist, IP blocking, security)
 - ✅ HTTP executor (validation, rate limiting, error handling)
+- 📋 **fetch() API** (83 comprehensive tests) - See `test/fetch_test.rb` and `test/README.md`
+  - Note: Native implementation currently has segfault issues. Tests document expected behavior.
 
 ## Usage
 
