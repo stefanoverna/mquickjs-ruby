@@ -130,6 +130,32 @@ result.value           # => 42
 result.console_output  # => "Hello\n"
 ```
 
+### Passing Data to Scripts
+
+Use `set_variable()` to pass Ruby data directly to JavaScript:
+
+```ruby
+sandbox = MQuickJS::Sandbox.new
+
+# Set variables
+sandbox.set_variable("user", { name: "Alice", age: 30 })
+sandbox.set_variable("items", [1, 2, 3, 4, 5])
+
+# Use them in JavaScript
+result = sandbox.eval("user.name + ' is ' + user.age")
+result.value  # => "Alice is 30"
+
+result = sandbox.eval("items.reduce(function(sum, n) { return sum + n }, 0)")
+result.value  # => 15
+```
+
+**Supported types:**
+- Primitives: `nil`, `true`, `false`, integers, floats, strings, symbols
+- Arrays (including nested arrays)
+- Hashes (including nested hashes)
+
+Variables persist across `eval()` calls in the same sandbox.
+
 ### Memory & CPU Limits
 
 ```ruby
