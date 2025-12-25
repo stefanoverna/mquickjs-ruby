@@ -257,41 +257,35 @@ puts result.console_truncated?  # => false (output fit within limit)
 
 ### HTTP Requests (Experimental)
 
-**Note:** The native `fetch()` implementation is currently experiencing issues. Use the preprocessor approach instead:
+MQuickJS provides a native `fetch()` function that works via a Ruby callback mechanism. This allows JavaScript code to make HTTP requests while Ruby controls the actual network access.
+
+#### Using Native fetch()
 
 ```ruby
 require 'mquickjs'
-require 'mquickjs/http_preprocessor'
 
-# Configure HTTP security
-http_config = MQuickJS::HTTPConfig.new(
-  whitelist: ['https://api.github.com/**', 'https://httpbin.org/**'],
-  blocked_ips: ['127.0.0.1', '10.0.0.0/8'],  # Block internal IPs
-  rate_limit: 10,        # Max 10 requests per evaluation
-  timeout: 5000,         # 5 second timeout per request
-  max_response_size: 1_000_000  # 1MB response limit
-)
+sandbox = MQuickJS::Sandbox.new
 
-http_executor = MQuickJS::HTTPExecutor.new(http_config)
-preprocessor = MQuickJS::HTTPPreprocessor.new(http_executor)
+# Configure HTTP callback to handle fetch requests
+sandbox.http_callback = lambda do |method, url, body, headers|
+  # Make the actual HTTP request using your preferred Ruby HTTP library
+  # Return a response hash with status, statusText, body, and headers
+  response = Net::HTTP.get_response(URI(url))
+  {
+    status: response.code.to_i,
+    statusText: response.message,
+    body: response.body,
+    headers: response.to_hash
+  }
+end
 
-# Preprocess code to inject HTTP capability
-original_code = <<~JS
-  var response = HTTP.get('https://api.github.com/users/octocat');
+# Now fetch() works in JavaScript
+result = sandbox.eval(<<~JS)
+  var response = fetch('https://api.github.com/users/octocat');
   JSON.parse(response.body).login;
 JS
 
-processed_code = preprocessor.process(original_code)
-result = MQuickJS.eval(processed_code)
 result.value  # => "octocat"
-
-# HTTP requests are validated against security rules
-begin
-  bad_code = "HTTP.get('http://localhost:3000/admin')"
-  MQuickJS.eval(preprocessor.process(bad_code))
-rescue MQuickJS::HTTPError => e
-  puts "Blocked: #{e.message}"  # IP address blocked
-end
 ```
 
 ## JavaScript Limitations
@@ -1113,17 +1107,21 @@ gem install mquickjs
 
 #### HTTP Not Working
 
-**Problem:** `fetch() is not enabled` error
+**Problem:** `fetch() is not enabled - HTTP callback not configured` error
 
-**Cause:** Native fetch() implementation has known issues
+**Cause:** The `http_callback` has not been set on the sandbox
 
-**Solution:** Use preprocessor approach:
+**Solution:** Set an HTTP callback before using fetch():
 ```ruby
-require 'mquickjs/http_preprocessor'
-preprocessor = MQuickJS::HTTPPreprocessor.new(http_executor)
-code = preprocessor.process("HTTP.get('https://example.com')")
-MQuickJS.eval(code)
+sandbox = MQuickJS::Sandbox.new
+sandbox.http_callback = lambda do |method, url, body, headers|
+  # Handle HTTP request and return response hash
+  { status: 200, statusText: "OK", body: "...", headers: {} }
+end
+sandbox.eval("fetch('https://example.com')")
 ```
+
+Alternatively, use the HTTPPreprocessor approach for built-in security controls.
 
 ### Debug Mode
 
