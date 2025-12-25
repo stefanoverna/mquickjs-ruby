@@ -264,19 +264,18 @@ MQuickJS provides a native `fetch()` function that works via a Ruby callback mec
 ```ruby
 require 'mquickjs'
 
+# Configure HTTP security
+http_config = MQuickJS::HTTPConfig.new(
+  whitelist: ['https://api.github.com/**'],
+  blocked_ips: ['127.0.0.1', '10.0.0.0/8']
+)
+http_executor = MQuickJS::HTTPExecutor.new(http_config)
+
 sandbox = MQuickJS::Sandbox.new
 
-# Configure HTTP callback to handle fetch requests
+# Configure HTTP callback using the secure executor
 sandbox.http_callback = lambda do |method, url, body, headers|
-  # Make the actual HTTP request using your preferred Ruby HTTP library
-  # Return a response hash with status, statusText, body, and headers
-  response = Net::HTTP.get_response(URI(url))
-  {
-    status: response.code.to_i,
-    statusText: response.message,
-    body: response.body,
-    headers: response.to_hash
-  }
+  http_executor.execute(method, url, body: body, headers: headers)
 end
 
 # Now fetch() works in JavaScript
@@ -331,7 +330,7 @@ MQuickJS uses [MicroQuickJS](https://bellard.org/mquickjs/), an extremely minima
 - **No Node.js/Browser APIs:**
   - No `process`, `Buffer`, `fs`, `path`, etc.
   - No DOM (`document`, `window`, etc.)
-  - No `XMLHttpRequest`, `fetch()` (except via HTTP preprocessor)
+  - No `XMLHttpRequest` (use `fetch()` with `http_callback`)
   - No `localStorage`, `sessionStorage`
 
 ### Available Standard Library
@@ -694,12 +693,15 @@ http_config = MQuickJS::HTTPConfig.new(
 )
 
 http_executor = MQuickJS::HTTPExecutor.new(http_config)
-preprocessor = MQuickJS::HTTPPreprocessor.new(http_executor)
 
-# Safe execution
+sandbox = MQuickJS::Sandbox.new
+sandbox.http_callback = lambda do |method, url, body, headers|
+  http_executor.execute(method, url, body: body, headers: headers)
+end
+
+# Safe execution with security controls
 begin
-  code = preprocessor.process("HTTP.get('https://api.github.com/users/octocat')")
-  result = MQuickJS.eval(code)
+  result = sandbox.eval("fetch('https://api.github.com/users/octocat').body")
 rescue MQuickJS::HTTPError => e
   puts "HTTP security blocked request: #{e.message}"
 end
@@ -717,9 +719,9 @@ end
 #### No Network Access
 
 - No direct socket access
-- No `XMLHttpRequest` or native `fetch()`
-- HTTP only via controlled preprocessor with security rules
-- No DNS queries (except via HTTP executor with IP blocking)
+- No `XMLHttpRequest`
+- `fetch()` only works via Ruby `http_callback` (you control all network access)
+- No DNS queries (Ruby handles DNS in the callback)
 
 #### No Process Access
 
@@ -845,7 +847,6 @@ Result object returned by `eval()` operations.
 - `value`: The return value of the JavaScript code (converted to Ruby)
 - `console_output` (String): Captured console.log output
 - `console_truncated?` (Boolean): Whether console output was truncated
-- `http_requests` (Array): HTTP requests made (when using preprocessor)
 
 **Example:**
 ```ruby
@@ -887,23 +888,6 @@ Create HTTP executor with security configuration.
 **Example:**
 ```ruby
 executor = MQuickJS::HTTPExecutor.new(http_config)
-```
-
-### MQuickJS::HTTPPreprocessor.new(executor)
-
-Create code preprocessor that injects HTTP capability.
-
-**Parameters:**
-- `executor` (HTTPExecutor): HTTP executor with security rules
-
-**Methods:**
-- `process(code)`: Transform code to inject HTTP object
-
-**Example:**
-```ruby
-preprocessor = MQuickJS::HTTPPreprocessor.new(http_executor)
-processed = preprocessor.process("HTTP.get('https://example.com')")
-result = MQuickJS.eval(processed)
 ```
 
 ## Performance
@@ -1120,8 +1104,6 @@ sandbox.http_callback = lambda do |method, url, body, headers|
 end
 sandbox.eval("fetch('https://example.com')")
 ```
-
-Alternatively, use the HTTPPreprocessor approach for built-in security controls.
 
 ### Debug Mode
 
