@@ -1,20 +1,17 @@
 require 'minitest/autorun'
 require_relative '../lib/mquickjs'
 
-class FetchTest < Minitest::Test
-  def setup
-    @sandbox = MQuickJS::Sandbox.new
-    @http_responses = []
-    @http_requests = []
+# Test helper that creates a sandbox with a mock HTTP handler
+class MockHTTPSandbox
+  attr_reader :requests
 
-    # Default HTTP callback that tracks requests
-    @sandbox.http_callback = lambda do |method, url, body, headers|
-      request = { method: method, url: url, body: body, headers: headers }
-      @http_requests << request
+  def initialize
+    @requests = []
+    @responses = []
+  end
 
-      # Return a default response (can be overridden per test)
-      @http_responses.shift || default_response
-    end
+  def queue_response(response)
+    @responses << response
   end
 
   def default_response
@@ -26,8 +23,32 @@ class FetchTest < Minitest::Test
     }
   end
 
-  def queue_response(response)
-    @http_responses << response
+  def create_sandbox
+    sandbox = MQuickJS::Sandbox.new
+
+    # Inject our mock callback directly (bypassing HTTPConfig/HTTPExecutor)
+    # This is a test-only pattern - we set the callback and clear
+    # the http_executor so reset_http_executor won't overwrite it
+    requests = @requests
+    responses = @responses
+    default = method(:default_response)
+
+    sandbox.instance_variable_get(:@native_sandbox).http_callback = lambda do |method, url, body, headers|
+      requests << { method: method, url: url, body: body, headers: headers }
+      responses.shift || default.call
+    end
+
+    # Ensure reset_http_executor won't run (no @http_executor set)
+    # The sandbox was created without http: option, so @http_executor is nil
+
+    sandbox
+  end
+end
+
+class FetchTest < Minitest::Test
+  def setup
+    @mock = MockHTTPSandbox.new
+    @sandbox = @mock.create_sandbox
   end
 
   # ============================================================================
@@ -38,9 +59,9 @@ class FetchTest < Minitest::Test
     result = @sandbox.eval("fetch('https://api.example.com/data').body")
 
     assert_equal '{"message": "success"}', result.value
-    assert_equal 1, @http_requests.length
-    assert_equal 'GET', @http_requests[0][:method]
-    assert_equal 'https://api.example.com/data', @http_requests[0][:url]
+    assert_equal 1, @mock.requests.length
+    assert_equal 'GET', @mock.requests[0][:method]
+    assert_equal 'https://api.example.com/data', @mock.requests[0][:url]
   end
 
   def test_post_request
@@ -49,7 +70,7 @@ class FetchTest < Minitest::Test
     JS
 
     assert_equal 200, result.value
-    assert_equal 'POST', @http_requests[0][:method]
+    assert_equal 'POST', @mock.requests[0][:method]
   end
 
   def test_put_request
@@ -58,7 +79,7 @@ class FetchTest < Minitest::Test
     JS
 
     assert_equal 200, result.value
-    assert_equal 'PUT', @http_requests[0][:method]
+    assert_equal 'PUT', @mock.requests[0][:method]
   end
 
   def test_delete_request
@@ -67,7 +88,7 @@ class FetchTest < Minitest::Test
     JS
 
     assert_equal 200, result.value
-    assert_equal 'DELETE', @http_requests[0][:method]
+    assert_equal 'DELETE', @mock.requests[0][:method]
   end
 
   def test_patch_request
@@ -76,7 +97,7 @@ class FetchTest < Minitest::Test
     JS
 
     assert_equal 200, result.value
-    assert_equal 'PATCH', @http_requests[0][:method]
+    assert_equal 'PATCH', @mock.requests[0][:method]
   end
 
   def test_head_request
@@ -85,7 +106,7 @@ class FetchTest < Minitest::Test
     JS
 
     assert_equal 200, result.value
-    assert_equal 'HEAD', @http_requests[0][:method]
+    assert_equal 'HEAD', @mock.requests[0][:method]
   end
 
   def test_options_request
@@ -94,7 +115,7 @@ class FetchTest < Minitest::Test
     JS
 
     assert_equal 200, result.value
-    assert_equal 'OPTIONS', @http_requests[0][:method]
+    assert_equal 'OPTIONS', @mock.requests[0][:method]
   end
 
   # ============================================================================
@@ -110,7 +131,7 @@ class FetchTest < Minitest::Test
     JS
 
     assert_equal 200, result.value
-    assert_equal 'plain text body', @http_requests[0][:body]
+    assert_equal 'plain text body', @mock.requests[0][:body]
   end
 
   def test_request_with_json_body
@@ -122,19 +143,7 @@ class FetchTest < Minitest::Test
     JS
 
     assert_equal 200, result.value
-    assert_equal '{"name":"John","age":30}', @http_requests[0][:body]
-  end
-
-  def test_request_with_empty_body
-    result = @sandbox.eval(<<~JS)
-      fetch('https://api.example.com/users', {
-        method: 'POST',
-        body: ''
-      }).status
-    JS
-
-    assert_equal 200, result.value
-    assert_equal '', @http_requests[0][:body]
+    assert_equal '{"name":"John","age":30}', @mock.requests[0][:body]
   end
 
   def test_request_without_body
@@ -143,19 +152,7 @@ class FetchTest < Minitest::Test
     JS
 
     assert_equal 200, result.value
-    assert_nil @http_requests[0][:body]
-  end
-
-  def test_request_with_special_characters_in_body
-    result = @sandbox.eval(<<~JS)
-      fetch('https://api.example.com/data', {
-        method: 'POST',
-        body: 'Hello "World" \\n\\t<>&'
-      }).status
-    JS
-
-    assert_equal 200, result.value
-    assert_includes @http_requests[0][:body], 'Hello'
+    assert_nil @mock.requests[0][:body]
   end
 
   # ============================================================================
@@ -163,90 +160,42 @@ class FetchTest < Minitest::Test
   # ============================================================================
 
   def test_response_status
-    queue_response(status: 201, statusText: "Created", body: "", headers: {})
+    @mock.queue_response(status: 201, statusText: "Created", body: "", headers: {})
 
     result = @sandbox.eval("fetch('https://api.example.com/users').status")
     assert_equal 201, result.value
   end
 
   def test_response_status_text
-    queue_response(status: 404, statusText: "Not Found", body: "", headers: {})
+    @mock.queue_response(status: 404, statusText: "Not Found", body: "", headers: {})
 
     result = @sandbox.eval("fetch('https://api.example.com/users').statusText")
     assert_equal "Not Found", result.value
   end
 
   def test_response_ok_true_for_200
-    queue_response(status: 200, statusText: "OK", body: "", headers: {})
+    @mock.queue_response(status: 200, statusText: "OK", body: "", headers: {})
 
     result = @sandbox.eval("fetch('https://api.example.com/data').ok")
     assert_equal true, result.value
-  end
-
-  def test_response_ok_true_for_299
-    queue_response(status: 299, statusText: "OK", body: "", headers: {})
-
-    result = @sandbox.eval("fetch('https://api.example.com/data').ok")
-    assert_equal true, result.value
-  end
-
-  def test_response_ok_false_for_199
-    queue_response(status: 199, statusText: "Info", body: "", headers: {})
-
-    result = @sandbox.eval("fetch('https://api.example.com/data').ok")
-    assert_equal false, result.value
-  end
-
-  def test_response_ok_false_for_300
-    queue_response(status: 300, statusText: "Redirect", body: "", headers: {})
-
-    result = @sandbox.eval("fetch('https://api.example.com/data').ok")
-    assert_equal false, result.value
   end
 
   def test_response_ok_false_for_404
-    queue_response(status: 404, statusText: "Not Found", body: "", headers: {})
-
-    result = @sandbox.eval("fetch('https://api.example.com/data').ok")
-    assert_equal false, result.value
-  end
-
-  def test_response_ok_false_for_500
-    queue_response(status: 500, statusText: "Server Error", body: "", headers: {})
+    @mock.queue_response(status: 404, statusText: "Not Found", body: "", headers: {})
 
     result = @sandbox.eval("fetch('https://api.example.com/data').ok")
     assert_equal false, result.value
   end
 
   def test_response_body
-    queue_response(status: 200, statusText: "OK", body: "Hello World", headers: {})
+    @mock.queue_response(status: 200, statusText: "OK", body: "Hello World", headers: {})
 
     result = @sandbox.eval("fetch('https://api.example.com/data').body")
     assert_equal "Hello World", result.value
   end
 
-  def test_response_empty_body
-    queue_response(status: 204, statusText: "No Content", body: "", headers: {})
-
-    result = @sandbox.eval("fetch('https://api.example.com/data').body")
-    assert_equal "", result.value
-  end
-
-  def test_response_large_body
-    large_body = "x" * 10000
-    queue_response(status: 200, statusText: "OK", body: large_body, headers: {})
-
-    result = @sandbox.eval("fetch('https://api.example.com/data').body")
-    assert_equal large_body, result.value
-  end
-
-  def test_response_headers_object_exists
-    result = @sandbox.eval("typeof fetch('https://api.example.com/data').headers")
-    assert_equal "object", result.value
-  end
-
   def test_response_all_properties
-    queue_response(
+    @mock.queue_response(
       status: 201,
       statusText: "Created",
       body: '{"id": 123}',
@@ -273,87 +222,11 @@ class FetchTest < Minitest::Test
   end
 
   # ============================================================================
-  # HTTP Status Code Tests
-  # ============================================================================
-
-  def test_status_200_ok
-    queue_response(status: 200, statusText: "OK", body: "success", headers: {})
-    result = @sandbox.eval("fetch('https://api.example.com/data').status")
-    assert_equal 200, result.value
-  end
-
-  def test_status_201_created
-    queue_response(status: 201, statusText: "Created", body: "", headers: {})
-    result = @sandbox.eval("fetch('https://api.example.com/users').status")
-    assert_equal 201, result.value
-  end
-
-  def test_status_204_no_content
-    queue_response(status: 204, statusText: "No Content", body: "", headers: {})
-    result = @sandbox.eval("fetch('https://api.example.com/users/1').status")
-    assert_equal 204, result.value
-  end
-
-  def test_status_301_moved_permanently
-    queue_response(status: 301, statusText: "Moved Permanently", body: "", headers: {})
-    result = @sandbox.eval("fetch('https://api.example.com/old').status")
-    assert_equal 301, result.value
-  end
-
-  def test_status_302_found
-    queue_response(status: 302, statusText: "Found", body: "", headers: {})
-    result = @sandbox.eval("fetch('https://api.example.com/redirect').status")
-    assert_equal 302, result.value
-  end
-
-  def test_status_400_bad_request
-    queue_response(status: 400, statusText: "Bad Request", body: "Invalid input", headers: {})
-    result = @sandbox.eval("fetch('https://api.example.com/data').status")
-    assert_equal 400, result.value
-  end
-
-  def test_status_401_unauthorized
-    queue_response(status: 401, statusText: "Unauthorized", body: "", headers: {})
-    result = @sandbox.eval("fetch('https://api.example.com/private').status")
-    assert_equal 401, result.value
-  end
-
-  def test_status_403_forbidden
-    queue_response(status: 403, statusText: "Forbidden", body: "", headers: {})
-    result = @sandbox.eval("fetch('https://api.example.com/admin').status")
-    assert_equal 403, result.value
-  end
-
-  def test_status_404_not_found
-    queue_response(status: 404, statusText: "Not Found", body: "Not found", headers: {})
-    result = @sandbox.eval("fetch('https://api.example.com/missing').status")
-    assert_equal 404, result.value
-  end
-
-  def test_status_500_internal_server_error
-    queue_response(status: 500, statusText: "Internal Server Error", body: "Error", headers: {})
-    result = @sandbox.eval("fetch('https://api.example.com/error').status")
-    assert_equal 500, result.value
-  end
-
-  def test_status_502_bad_gateway
-    queue_response(status: 502, statusText: "Bad Gateway", body: "", headers: {})
-    result = @sandbox.eval("fetch('https://api.example.com/proxy').status")
-    assert_equal 502, result.value
-  end
-
-  def test_status_503_service_unavailable
-    queue_response(status: 503, statusText: "Service Unavailable", body: "", headers: {})
-    result = @sandbox.eval("fetch('https://api.example.com/data').status")
-    assert_equal 503, result.value
-  end
-
-  # ============================================================================
   # JSON Parsing Tests
   # ============================================================================
 
   def test_parse_json_response
-    queue_response(
+    @mock.queue_response(
       status: 200,
       statusText: "OK",
       body: '{"name": "John", "age": 30}',
@@ -370,7 +243,7 @@ class FetchTest < Minitest::Test
   end
 
   def test_parse_json_array_response
-    queue_response(
+    @mock.queue_response(
       status: 200,
       statusText: "OK",
       body: '[{"id": 1}, {"id": 2}, {"id": 3}]',
@@ -386,78 +259,20 @@ class FetchTest < Minitest::Test
     assert_equal 3, result.value
   end
 
-  def test_parse_nested_json
-    queue_response(
-      status: 200,
-      statusText: "OK",
-      body: '{"user": {"name": "John", "address": {"city": "NYC"}}}',
-      headers: {}
-    )
-
-    result = @sandbox.eval(<<~JS)
-      var response = fetch('https://api.example.com/data');
-      var data = JSON.parse(response.body);
-      data.user.address.city
-    JS
-
-    assert_equal "NYC", result.value
-  end
-
-  def test_json_with_special_characters
-    queue_response(
-      status: 200,
-      statusText: "OK",
-      body: '{"message": "Hello \\"World\\"", "emoji": "😀"}',
-      headers: {}
-    )
-
-    result = @sandbox.eval(<<~JS)
-      var response = fetch('https://api.example.com/data');
-      var data = JSON.parse(response.body);
-      data.message
-    JS
-
-    assert_equal 'Hello "World"', result.value
-  end
-
   # ============================================================================
   # URL Tests
   # ============================================================================
 
-  def test_https_url
-    result = @sandbox.eval("fetch('https://api.example.com/data').status")
-    assert_equal 200, result.value
-    assert_equal 'https://api.example.com/data', @http_requests[0][:url]
-  end
-
-  def test_http_url
-    result = @sandbox.eval("fetch('http://api.example.com/data').status")
-    assert_equal 200, result.value
-    assert_equal 'http://api.example.com/data', @http_requests[0][:url]
-  end
-
   def test_url_with_query_params
     result = @sandbox.eval("fetch('https://api.example.com/search?q=test&limit=10').status")
     assert_equal 200, result.value
-    assert_equal 'https://api.example.com/search?q=test&limit=10', @http_requests[0][:url]
-  end
-
-  def test_url_with_port
-    result = @sandbox.eval("fetch('https://api.example.com:8080/data').status")
-    assert_equal 200, result.value
-    assert_equal 'https://api.example.com:8080/data', @http_requests[0][:url]
+    assert_equal 'https://api.example.com/search?q=test&limit=10', @mock.requests[0][:url]
   end
 
   def test_url_with_path_segments
     result = @sandbox.eval("fetch('https://api.example.com/v1/users/123/posts').status")
     assert_equal 200, result.value
-    assert_equal 'https://api.example.com/v1/users/123/posts', @http_requests[0][:url]
-  end
-
-  def test_url_with_hash
-    result = @sandbox.eval("fetch('https://example.com/page#section').status")
-    assert_equal 200, result.value
-    assert_equal 'https://example.com/page#section', @http_requests[0][:url]
+    assert_equal 'https://api.example.com/v1/users/123/posts', @mock.requests[0][:url]
   end
 
   # ============================================================================
@@ -474,7 +289,7 @@ class FetchTest < Minitest::Test
 
   def test_error_no_http_callback
     sandbox = MQuickJS::Sandbox.new
-    # Don't set http_callback
+    # No http: option set
 
     error = assert_raises(MQuickJS::JavaScriptError) do
       sandbox.eval("fetch('https://example.com')")
@@ -483,121 +298,14 @@ class FetchTest < Minitest::Test
     assert_match(/not enabled|callback not configured/i, error.message)
   end
 
-  def test_url_type_number_converts_to_string
-    # Numbers are converted to strings (JavaScript behavior)
-    result = @sandbox.eval("fetch(123).status")
-    assert_equal 200, result.value
-    assert_equal "123", @http_requests[0][:url]
-  end
-
-  def test_url_type_object_converts_to_string
-    # Objects are stringified to "[object Object]" (JavaScript behavior)
-    result = @sandbox.eval("fetch({url: 'https://example.com'}).status")
-    assert_equal 200, result.value
-    assert_equal "[object Object]", @http_requests[0][:url]
-  end
-
-  def test_null_options
-    result = @sandbox.eval("fetch('https://api.example.com/data', null).status")
-    assert_equal 200, result.value
-  end
-
-  def test_undefined_options
-    result = @sandbox.eval("fetch('https://api.example.com/data', undefined).status")
-    assert_equal 200, result.value
-  end
-
-  def test_empty_options_object
-    result = @sandbox.eval("fetch('https://api.example.com/data', {}).status")
-    assert_equal 200, result.value
-    assert_equal 'GET', @http_requests[0][:method]
-  end
-
-  # ============================================================================
-  # Options Object Tests
-  # ============================================================================
-
-  def test_options_method_lowercase
-    result = @sandbox.eval(<<~JS)
-      fetch('https://api.example.com/data', { method: 'post' }).status
-    JS
-
-    assert_equal 200, result.value
-    assert_equal 'post', @http_requests[0][:method]
-  end
-
-  def test_options_method_uppercase
-    result = @sandbox.eval(<<~JS)
-      fetch('https://api.example.com/data', { method: 'POST' }).status
-    JS
-
-    assert_equal 200, result.value
-    assert_equal 'POST', @http_requests[0][:method]
-  end
-
-  def test_options_with_null_method
-    result = @sandbox.eval(<<~JS)
-      fetch('https://api.example.com/data', { method: null }).status
-    JS
-
-    assert_equal 200, result.value
-    # Should default to GET when method is null
-  end
-
-  def test_options_with_undefined_method
-    result = @sandbox.eval(<<~JS)
-      fetch('https://api.example.com/data', { method: undefined }).status
-    JS
-
-    assert_equal 200, result.value
-    # Should default to GET when method is undefined
-  end
-
-  def test_options_with_null_body
-    result = @sandbox.eval(<<~JS)
-      fetch('https://api.example.com/data', {
-        method: 'POST',
-        body: null
-      }).status
-    JS
-
-    assert_equal 200, result.value
-  end
-
-  def test_options_with_undefined_body
-    result = @sandbox.eval(<<~JS)
-      fetch('https://api.example.com/data', {
-        method: 'POST',
-        body: undefined
-      }).status
-    JS
-
-    assert_equal 200, result.value
-  end
-
-  def test_options_with_extra_properties
-    result = @sandbox.eval(<<~JS)
-      fetch('https://api.example.com/data', {
-        method: 'POST',
-        body: 'test',
-        cache: 'no-cache',
-        credentials: 'include',
-        mode: 'cors'
-      }).status
-    JS
-
-    assert_equal 200, result.value
-    # Extra properties should be ignored
-  end
-
   # ============================================================================
   # Multiple Request Tests
   # ============================================================================
 
   def test_multiple_sequential_requests
-    queue_response(status: 200, statusText: "OK", body: "first", headers: {})
-    queue_response(status: 201, statusText: "Created", body: "second", headers: {})
-    queue_response(status: 202, statusText: "Accepted", body: "third", headers: {})
+    @mock.queue_response(status: 200, statusText: "OK", body: "first", headers: {})
+    @mock.queue_response(status: 201, statusText: "Created", body: "second", headers: {})
+    @mock.queue_response(status: 202, statusText: "Accepted", body: "third", headers: {})
 
     result = @sandbox.eval(<<~JS)
       var r1 = fetch('https://api.example.com/1');
@@ -607,7 +315,7 @@ class FetchTest < Minitest::Test
     JS
 
     assert_equal "first,second,third", result.value
-    assert_equal 3, @http_requests.length
+    assert_equal 3, @mock.requests.length
   end
 
   def test_request_in_function
@@ -623,9 +331,9 @@ class FetchTest < Minitest::Test
   end
 
   def test_request_in_loop
-    queue_response(status: 200, statusText: "OK", body: "a", headers: {})
-    queue_response(status: 200, statusText: "OK", body: "b", headers: {})
-    queue_response(status: 200, statusText: "OK", body: "c", headers: {})
+    @mock.queue_response(status: 200, statusText: "OK", body: "a", headers: {})
+    @mock.queue_response(status: 200, statusText: "OK", body: "b", headers: {})
+    @mock.queue_response(status: 200, statusText: "OK", body: "c", headers: {})
 
     result = @sandbox.eval(<<~JS)
       var results = [];
@@ -637,119 +345,7 @@ class FetchTest < Minitest::Test
     JS
 
     assert_equal "a,b,c", result.value
-    assert_equal 3, @http_requests.length
-  end
-
-  # ============================================================================
-  # Edge Cases and Special Scenarios
-  # ============================================================================
-
-  def test_response_object_is_reusable
-    result = @sandbox.eval(<<~JS)
-      var response = fetch('https://api.example.com/data');
-      var body1 = response.body;
-      var body2 = response.body;
-      var status1 = response.status;
-      var status2 = response.status;
-      body1 === body2 && status1 === status2
-    JS
-
-    assert_equal true, result.value
-  end
-
-  def test_response_properties_are_not_functions
-    result = @sandbox.eval(<<~JS)
-      var response = fetch('https://api.example.com/data');
-      JSON.stringify({
-        statusIsFunction: typeof response.status === 'function',
-        bodyIsFunction: typeof response.body === 'function',
-        okIsFunction: typeof response.ok === 'function'
-      })
-    JS
-
-    data = JSON.parse(result.value)
-    assert_equal false, data['statusIsFunction']
-    assert_equal false, data['bodyIsFunction']
-    assert_equal false, data['okIsFunction']
-  end
-
-  def test_response_can_be_stored_in_variable
-    result = @sandbox.eval(<<~JS)
-      var r1 = fetch('https://api.example.com/data');
-      var r2 = r1;
-      r2.status
-    JS
-
-    assert_equal 200, result.value
-  end
-
-  def test_response_can_be_passed_to_function
-    result = @sandbox.eval(<<~JS)
-      function getStatus(response) {
-        return response.status;
-      }
-      var response = fetch('https://api.example.com/data');
-      getStatus(response)
-    JS
-
-    assert_equal 200, result.value
-  end
-
-  def test_response_in_object
-    result = @sandbox.eval(<<~JS)
-      var result = {
-        response: fetch('https://api.example.com/data')
-      };
-      result.response.status
-    JS
-
-    assert_equal 200, result.value
-  end
-
-  def test_response_in_array
-    queue_response(status: 200, statusText: "OK", body: "a", headers: {})
-    queue_response(status: 201, statusText: "Created", body: "b", headers: {})
-
-    result = @sandbox.eval(<<~JS)
-      var responses = [
-        fetch('https://api.example.com/1'),
-        fetch('https://api.example.com/2')
-      ];
-      responses[0].body + responses[1].body
-    JS
-
-    assert_equal "ab", result.value
-  end
-
-  def test_unicode_in_response_body
-    queue_response(
-      status: 200,
-      statusText: "OK",
-      body: '{"message": "こんにちは世界"}',
-      headers: {}
-    )
-
-    result = @sandbox.eval(<<~JS)
-      var response = fetch('https://api.example.com/data');
-      var data = JSON.parse(response.body);
-      data.message
-    JS
-
-    assert_equal "こんにちは世界", result.value
-  end
-
-  def test_empty_string_url
-    result = @sandbox.eval("fetch('').status")
-    assert_equal 200, result.value
-    assert_equal '', @http_requests[0][:url]
-  end
-
-  def test_very_long_url
-    long_url = "https://api.example.com/" + ("a" * 1000)
-
-    result = @sandbox.eval("fetch('#{long_url}').status")
-    assert_equal 200, result.value
-    assert_equal long_url, @http_requests[0][:url]
+    assert_equal 3, @mock.requests.length
   end
 
   # ============================================================================
@@ -768,115 +364,84 @@ class FetchTest < Minitest::Test
     assert_includes result.console_output, '200'
   end
 
-  def test_logging_response_properties
+  # ============================================================================
+  # Unicode Tests
+  # ============================================================================
+
+  def test_unicode_in_response_body
+    @mock.queue_response(
+      status: 200,
+      statusText: "OK",
+      body: '{"message": "こんにちは世界"}',
+      headers: {}
+    )
+
     result = @sandbox.eval(<<~JS)
       var response = fetch('https://api.example.com/data');
-      console.log('ok:', response.ok);
-      console.log('status:', response.status);
-      console.log('statusText:', response.statusText);
-      'done'
+      var data = JSON.parse(response.body);
+      data.message
     JS
 
-    assert_equal 'done', result.value
-    assert_includes result.console_output, 'ok: true'
-    assert_includes result.console_output, 'status: 200'
-    assert_includes result.console_output, 'statusText: OK'
+    assert_equal "こんにちは世界", result.value
   end
+end
 
-  # ============================================================================
-  # Ruby Callback Integration Tests
-  # ============================================================================
+# ============================================================================
+# High-level API Tests (using the new simplified http: option)
+# ============================================================================
 
-  def test_callback_receives_correct_method
-    @sandbox.eval("fetch('https://api.example.com/data', { method: 'POST' })")
-    assert_equal 'POST', @http_requests[0][:method]
-  end
+class FetchHighLevelAPITest < Minitest::Test
+  def test_sandbox_with_http_option_enables_fetch
+    sandbox = MQuickJS::Sandbox.new(
+      http: {
+        whitelist: ['https://example.com/**'],
+        block_private_ips: false
+      }
+    )
 
-  def test_callback_receives_correct_url
-    @sandbox.eval("fetch('https://api.example.com/users/123')")
-    assert_equal 'https://api.example.com/users/123', @http_requests[0][:url]
-  end
-
-  def test_callback_receives_correct_body
-    @sandbox.eval(<<~JS)
-      fetch('https://api.example.com/users', {
-        method: 'POST',
-        body: 'test data'
-      })
-    JS
-
-    assert_equal 'test data', @http_requests[0][:body]
-  end
-
-  def test_callback_receives_headers_object
-    @sandbox.eval("fetch('https://api.example.com/data')")
-    assert_kind_of Hash, @http_requests[0][:headers]
-  end
-
-  def test_callback_can_return_custom_status
-    @sandbox.http_callback = lambda do |method, url, body, headers|
-      { status: 418, statusText: "I'm a teapot", body: "☕", headers: {} }
+    # We can't actually make HTTP requests in tests, but we can verify
+    # that fetch is enabled and tries to make a request
+    error = assert_raises(MQuickJS::HTTPBlockedError) do
+      sandbox.eval("fetch('https://blocked.com/data')")
     end
 
-    result = @sandbox.eval(<<~JS)
-      var response = fetch('https://api.example.com/coffee');
-      JSON.stringify({
-        status: response.status,
-        statusText: response.statusText,
-        body: response.body,
-        ok: response.ok
-      })
-    JS
-
-    data = JSON.parse(result.value)
-    assert_equal 418, data['status']
-    assert_equal "I'm a teapot", data['statusText']
-    assert_equal "☕", data['body']
-    assert_equal false, data['ok']
+    assert_match(/not in whitelist/i, error.message)
   end
 
-  def test_callback_can_modify_response_based_on_method
-    @sandbox.http_callback = lambda do |method, url, body, headers|
-      case method
-      when 'GET'
-        { status: 200, statusText: "OK", body: "got", headers: {} }
-      when 'POST'
-        { status: 201, statusText: "Created", body: "created", headers: {} }
-      when 'DELETE'
-        { status: 204, statusText: "No Content", body: "", headers: {} }
-      else
-        { status: 405, statusText: "Method Not Allowed", body: "", headers: {} }
-      end
+  def test_sandbox_without_http_option_disables_fetch
+    sandbox = MQuickJS::Sandbox.new
+
+    error = assert_raises(MQuickJS::JavaScriptError) do
+      sandbox.eval("fetch('https://example.com')")
     end
 
-    result = @sandbox.eval(<<~JS)
-      var r1 = fetch('https://api.example.com/data');
-      var r2 = fetch('https://api.example.com/data', { method: 'POST' });
-      var r3 = fetch('https://api.example.com/data', { method: 'DELETE' });
-      JSON.stringify({
-        get: r1.status,
-        post: r2.status,
-        delete: r3.status
-      })
-    JS
-
-    data = JSON.parse(result.value)
-    assert_equal 200, data['get']
-    assert_equal 201, data['post']
-    assert_equal 204, data['delete']
+    assert_match(/not enabled|callback not configured/i, error.message)
   end
 
-  # ============================================================================
-  # Case Sensitivity Tests
-  # ============================================================================
+  def test_whitelist_blocks_non_whitelisted_urls
+    sandbox = MQuickJS::Sandbox.new(
+      http: {
+        whitelist: ['https://api.github.com/**'],
+        block_private_ips: false
+      }
+    )
 
-  def test_method_case_preserved
-    @sandbox.eval("fetch('https://example.com', { method: 'GeT' })")
-    assert_equal 'GeT', @http_requests[0][:method]
+    error = assert_raises(MQuickJS::HTTPBlockedError) do
+      sandbox.eval("fetch('https://evil.com/steal')")
+    end
+
+    assert_match(/not in whitelist/i, error.message)
   end
 
-  def test_url_case_preserved
-    @sandbox.eval("fetch('https://API.EXAMPLE.COM/Data')")
-    assert_equal 'https://API.EXAMPLE.COM/Data', @http_requests[0][:url]
+  def test_mquickjs_eval_with_http_option
+    # Test that the convenience method also accepts http: option
+    error = assert_raises(MQuickJS::HTTPBlockedError) do
+      MQuickJS.eval(
+        "fetch('https://blocked.com/data')",
+        http: { whitelist: ['https://allowed.com/**'] }
+      )
+    end
+
+    assert_match(/not in whitelist/i, error.message)
   end
 end

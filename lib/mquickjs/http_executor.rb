@@ -93,8 +93,7 @@ module MQuickJS
       http.open_timeout = timeout_ms / 1000.0
       http.read_timeout = timeout_ms / 1000.0
 
-      # Don't follow redirects by default
-      http.max_redirects = 0 unless @config.follow_redirects
+      # Note: Net::HTTP doesn't follow redirects by default, which is what we want
 
       # Create request
       request = case method
