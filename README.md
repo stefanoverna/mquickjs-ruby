@@ -110,6 +110,16 @@ This will:
 - Compile the extension
 - Run all tests
 
+#### How the Build Works
+
+The native extension build process has two stages:
+
+1. **Generate JavaScript stdlib** - A host tool (`mqjs_stdlib_gen`) is compiled from `mqjs_stdlib.c` and `mquickjs_build.c`, then executed to generate `mqjs_stdlib.h`. This header contains the JavaScript standard library (Object, Array, String, etc.) as pre-compiled binary data optimized for the target platform.
+
+2. **Compile Ruby extension** - The generated header is included when building the native extension (`mquickjs_native.so`).
+
+This ensures the JavaScript runtime is correctly compiled for your specific platform and architecture.
+
 ## Quick Start
 
 ```ruby
