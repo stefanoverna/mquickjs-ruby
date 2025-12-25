@@ -299,10 +299,8 @@ sandbox = MQuickJS::Sandbox.new(
     max_request_size: 1_048_576,                # Max request body size (default: 1MB)
     max_response_size: 1_048_576,               # Max response size (default: 1MB)
 
-    # Timeouts and redirects
-    request_timeout: 5000,                      # Request timeout in ms (default: 5000)
-    follow_redirects: false,                    # Follow redirects (default: false)
-    max_redirects: 0                            # Max redirects to follow (default: 0)
+    # Timeout
+    request_timeout: 5000                       # Request timeout in ms (default: 5000)
   }
 )
 ```

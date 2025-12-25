@@ -20,8 +20,6 @@ module MQuickJS
     # @option http [Integer] :request_timeout Request timeout in ms (default: 5000)
     # @option http [Integer] :max_request_size Maximum request body size (default: 1MB)
     # @option http [Integer] :max_response_size Maximum response size (default: 1MB)
-    # @option http [Boolean] :follow_redirects Whether to follow redirects (default: false)
-    # @option http [Integer] :max_redirects Maximum redirects to follow (default: 0)
     # @option http [Array<String>] :allowed_methods HTTP methods allowed (default: GET, POST, PUT, DELETE, PATCH, HEAD)
     # @option http [Array<Integer>] :allowed_ports Allowed ports (default: [80, 443])
     # @option http [Boolean] :block_private_ips Block private/local IPs (default: true)

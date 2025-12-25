@@ -93,8 +93,6 @@ module MQuickJS
       http.open_timeout = timeout_ms / 1000.0
       http.read_timeout = timeout_ms / 1000.0
 
-      # Note: Net::HTTP doesn't follow redirects by default, which is what we want
-
       # Create request
       request = case method
                 when 'GET'

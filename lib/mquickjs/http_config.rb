@@ -11,8 +11,6 @@ module MQuickJS
     DEFAULT_REQUEST_TIMEOUT = 5000  # ms
     DEFAULT_MAX_REQUEST_SIZE = 1_048_576  # 1MB
     DEFAULT_MAX_RESPONSE_SIZE = 1_048_576  # 1MB
-    DEFAULT_FOLLOW_REDIRECTS = false
-    DEFAULT_MAX_REDIRECTS = 0
     DEFAULT_ALLOWED_METHODS = %w[GET POST PUT DELETE PATCH HEAD].freeze
     DEFAULT_ALLOWED_PORTS = [80, 443].freeze
 
@@ -29,9 +27,8 @@ module MQuickJS
     ].map { |cidr| IPAddr.new(cidr) }.freeze
 
     attr_reader :whitelist, :max_requests, :max_concurrent, :request_timeout,
-                :max_request_size, :max_response_size, :follow_redirects,
-                :max_redirects, :allowed_methods, :block_private_ips,
-                :allowed_ports
+                :max_request_size, :max_response_size, :allowed_methods,
+                :block_private_ips, :allowed_ports
 
     def initialize(options = {})
       @whitelist = compile_patterns(options[:whitelist] || [])
@@ -40,8 +37,6 @@ module MQuickJS
       @request_timeout = options[:request_timeout] || DEFAULT_REQUEST_TIMEOUT
       @max_request_size = options[:max_request_size] || DEFAULT_MAX_REQUEST_SIZE
       @max_response_size = options[:max_response_size] || DEFAULT_MAX_RESPONSE_SIZE
-      @follow_redirects = options.fetch(:follow_redirects, DEFAULT_FOLLOW_REDIRECTS)
-      @max_redirects = options[:max_redirects] || DEFAULT_MAX_REDIRECTS
       @allowed_methods = options[:allowed_methods] || DEFAULT_ALLOWED_METHODS
       @block_private_ips = options.fetch(:block_private_ips, true)
       @allowed_ports = options[:allowed_ports] || DEFAULT_ALLOWED_PORTS
