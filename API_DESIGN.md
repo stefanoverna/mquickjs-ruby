@@ -114,31 +114,106 @@ rescue MQuickJS::TimeoutError => e
 end
 ```
 
-### HTTP Support (Phase 2)
+### HTTP Support
 
 ```ruby
 # Create sandbox with HTTP support
 sandbox = MQuickJS::Sandbox.new(
   http_enabled: true,
-  http_whitelist: [
-    "https://api.github.com/*",
-    "https://httpbin.org/*"
-  ]
+  http_config: {
+    whitelist: [
+      "https://api.github.com/*",
+      "https://httpbin.org/**"
+    ],
+    max_requests: 10,              # Max 10 HTTP calls per eval
+    max_response_size: 1_048_576,  # 1MB response limit
+    request_timeout: 5000,         # 5 second timeout
+    block_private_ips: true        # Block internal networks
+  }
 )
 
-# JavaScript can now make HTTP requests
+# JavaScript API - Simple and synchronous
 result = sandbox.eval(<<~JS)
-  var response = fetch('https://api.github.com/users/octocat');
-  JSON.parse(response).login;
-JS
-# => "octocat"
+  // GET request
+  var response = http.get('https://api.github.com/users/octocat');
 
-# Blocked request
+  if (response.ok) {
+    var user = response.json();
+    user.login;  // => "octocat"
+  } else {
+    'Error: ' + response.status;
+  }
+JS
+
+# POST request
+result = sandbox.eval(<<~JS)
+  var data = JSON.stringify({ name: 'test', value: 123 });
+
+  var response = http.post(
+    'https://httpbin.org/post',
+    data,
+    { headers: { 'Content-Type': 'application/json' } }
+  );
+
+  response.status;  // => 200
+JS
+
+# Generic request method
+result = sandbox.eval(<<~JS)
+  var response = http.request({
+    method: 'PUT',
+    url: 'https://api.example.com/resource/123',
+    headers: {
+      'Authorization': 'Bearer token',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ updated: true }),
+    timeout: 3000
+  });
+
+  response.ok;
+JS
+
+# Blocked requests raise errors
 begin
-  sandbox.eval("fetch('https://evil.com/data')")
+  sandbox.eval("http.get('https://evil.com/data')")
 rescue MQuickJS::HTTPBlockedError => e
-  puts "HTTP request blocked"
+  puts "HTTP request blocked: not in whitelist"
 end
+
+begin
+  sandbox.eval("http.get('http://192.168.1.1/admin')")
+rescue MQuickJS::HTTPBlockedError => e
+  puts "HTTP request blocked: private IP address"
+end
+
+# Access HTTP request log
+result = sandbox.eval("http.get('https://api.github.com/users/octocat').status")
+result.http_requests
+# => [
+#   {
+#     method: 'GET',
+#     url: 'https://api.github.com/users/octocat',
+#     status: 200,
+#     duration_ms: 145,
+#     request_size: 256,
+#     response_size: 1024
+#   }
+# ]
+```
+
+#### HTTP Security Features
+
+1. **Domain Whitelist**: Only approved URLs can be accessed
+2. **IP Blocking**: Private networks, localhost, and cloud metadata blocked
+3. **Size Limits**: Request and response size limits prevent memory exhaustion
+4. **Rate Limiting**: Max requests per evaluation prevents abuse
+5. **Timeout Control**: Each request has a timeout to prevent hanging
+6. **No Redirects**: Redirect following disabled by default to prevent bypass
+7. **Method Control**: Restrict allowed HTTP methods (GET, POST, etc.)
+8. **Header Sanitization**: Dangerous headers are filtered
+
+See `HTTP_SECURITY_DESIGN.md` for complete threat model and implementation details.
 ```
 
 ## Implementation Details
