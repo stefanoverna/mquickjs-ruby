@@ -8,19 +8,21 @@ module MQuickJS
     class Sandbox
       DEFAULT_MEMORY_LIMIT = 50_000  # 50KB
       DEFAULT_TIMEOUT_MS = 5000      # 5 seconds
+      DEFAULT_CONSOLE_MAX_SIZE = 10_000  # 10KB
 
-      attr_reader :memory_limit, :timeout_ms
+      attr_reader :memory_limit, :timeout_ms, :console_max_size
 
-      def initialize(memory_limit: DEFAULT_MEMORY_LIMIT, timeout_ms: DEFAULT_TIMEOUT_MS)
+      def initialize(memory_limit: DEFAULT_MEMORY_LIMIT, timeout_ms: DEFAULT_TIMEOUT_MS, console_log_max_size: DEFAULT_CONSOLE_MAX_SIZE)
         @memory_limit = memory_limit
         @timeout_ms = timeout_ms
+        @console_max_size = console_log_max_size
       end
 
       def eval(code)
         raise ArgumentError, "code must be a String" unless code.is_a?(String)
 
         # Create context wrapper
-        wrapper = Bindings.mqjs_new_context(@memory_limit, @timeout_ms)
+        wrapper = Bindings.mqjs_new_context(@memory_limit, @timeout_ms, @console_max_size)
         raise MemoryLimitError, "Failed to create context" if wrapper.null?
 
         begin
@@ -40,7 +42,14 @@ module MQuickJS
 
           # Convert result to Ruby value
           ctx = Bindings.mqjs_get_context(wrapper)
-          js_to_ruby(ctx, result_val)
+          value = js_to_ruby(ctx, result_val)
+
+          # Get console output
+          console_output = Bindings.mqjs_get_console_output(wrapper) || ""
+          console_truncated = Bindings.mqjs_console_truncated(wrapper) != 0
+
+          # Return Result object
+          Result.new(value, console_output, console_truncated)
         ensure
           Bindings.mqjs_free_context(wrapper) unless wrapper.null?
         end

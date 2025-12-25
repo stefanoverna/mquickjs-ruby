@@ -2,6 +2,7 @@
 
 require_relative 'mquickjs/version'
 require_relative 'mquickjs/errors'
+require_relative 'mquickjs/result'
 require_relative 'mquickjs/ffi/bindings'
 require_relative 'mquickjs/ffi/sandbox'
 

@@ -51,6 +51,30 @@ result3 = sandbox.eval("typeof x")
 # => "undefined"
 ```
 
+### Console Output Capture
+
+```ruby
+# Console.log output is captured automatically
+result = MQuickJS.eval("console.log('Hello'); console.log('World'); 42")
+result.value  # => 42
+result.console_output  # => "Hello\nWorld\n"
+
+# Configure console output limits
+sandbox = MQuickJS::Sandbox.new(
+  console_log_max_size: 10_000  # 10KB (default)
+)
+
+result = sandbox.eval("console.log('test'); 123")
+result.value  # => 123
+result.console_output  # => "test\n"
+
+# Output is truncated if it exceeds the limit
+code = "for (var i = 0; i < 10000; i++) console.log('x'.repeat(100))"
+result = MQuickJS.eval(code)
+result.console_output.bytesize  # => 10000 (truncated)
+result.console_truncated?  # => true
+```
+
 ### Error Handling
 
 ```ruby

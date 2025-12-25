@@ -11,7 +11,7 @@
 typedef struct ContextWrapper ContextWrapper;
 
 // Create a new context with stdlib
-ContextWrapper *mqjs_new_context(size_t mem_size, int64_t timeout_ms);
+ContextWrapper *mqjs_new_context(size_t mem_size, int64_t timeout_ms, size_t console_max_size);
 
 // Free context
 void mqjs_free_context(ContextWrapper *wrapper);
@@ -24,5 +24,14 @@ int mqjs_timed_out(ContextWrapper *wrapper);
 
 // Get the JSContext from wrapper
 JSContext *mqjs_get_context(ContextWrapper *wrapper);
+
+// Get console output
+const char *mqjs_get_console_output(ContextWrapper *wrapper);
+
+// Get console output length
+size_t mqjs_get_console_output_len(ContextWrapper *wrapper);
+
+// Check if console output was truncated
+int mqjs_console_truncated(ContextWrapper *wrapper);
 
 #endif /* MQUICKJS_WRAPPER_H */

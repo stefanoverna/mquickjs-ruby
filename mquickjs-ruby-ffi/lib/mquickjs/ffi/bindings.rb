@@ -49,11 +49,14 @@ module MQuickJS
       JS_CLASS_SYNTAX_ERROR = 13
 
       # Wrapper functions (simplified API)
-      attach_function :mqjs_new_context, [:size_t, :int64], :ContextWrapper
+      attach_function :mqjs_new_context, [:size_t, :int64, :size_t], :ContextWrapper
       attach_function :mqjs_free_context, [:ContextWrapper], :void
       attach_function :mqjs_eval, [:ContextWrapper, :string, :size_t], :JSValue
       attach_function :mqjs_timed_out, [:ContextWrapper], :int
       attach_function :mqjs_get_context, [:ContextWrapper], :JSContext
+      attach_function :mqjs_get_console_output, [:ContextWrapper], :string
+      attach_function :mqjs_get_console_output_len, [:ContextWrapper], :size_t
+      attach_function :mqjs_console_truncated, [:ContextWrapper], :int
 
       # Core JS functions
       attach_function :JS_GetException, [:JSContext], :JSValue
