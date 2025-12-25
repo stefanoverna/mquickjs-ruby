@@ -288,45 +288,6 @@ JS
 result.value  # => "octocat"
 ```
 
-#### Using the HTTPPreprocessor (Alternative)
-
-For more comprehensive HTTP security controls (whitelisting, IP blocking, rate limiting), use the preprocessor approach:
-
-```ruby
-require 'mquickjs'
-require 'mquickjs/http_preprocessor'
-
-# Configure HTTP security
-http_config = MQuickJS::HTTPConfig.new(
-  whitelist: ['https://api.github.com/**', 'https://httpbin.org/**'],
-  blocked_ips: ['127.0.0.1', '10.0.0.0/8'],  # Block internal IPs
-  rate_limit: 10,        # Max 10 requests per evaluation
-  timeout: 5000,         # 5 second timeout per request
-  max_response_size: 1_000_000  # 1MB response limit
-)
-
-http_executor = MQuickJS::HTTPExecutor.new(http_config)
-preprocessor = MQuickJS::HTTPPreprocessor.new(http_executor)
-
-# Preprocess code to inject HTTP capability
-original_code = <<~JS
-  var response = HTTP.get('https://api.github.com/users/octocat');
-  JSON.parse(response.body).login;
-JS
-
-processed_code = preprocessor.process(original_code)
-result = MQuickJS.eval(processed_code)
-result.value  # => "octocat"
-
-# HTTP requests are validated against security rules
-begin
-  bad_code = "HTTP.get('http://localhost:3000/admin')"
-  MQuickJS.eval(preprocessor.process(bad_code))
-rescue MQuickJS::HTTPError => e
-  puts "Blocked: #{e.message}"  # IP address blocked
-end
-```
-
 ## JavaScript Limitations
 
 MQuickJS uses [MicroQuickJS](https://bellard.org/mquickjs/), an extremely minimal JavaScript engine designed for embedded systems. This imposes several limitations:
