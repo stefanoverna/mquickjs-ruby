@@ -1,26 +1,4 @@
-# Build artifacts
-*.so
 *.o
-*.log
-mkmf.log
+*.so
+Makefile
 
-# Ruby
-*.gem
-.bundle
-vendor/
-
-# Backup files
-*.old.*
-*.bak
-*~
-
-# Editor files
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS files
-.DS_Store
-Thumbs.db
