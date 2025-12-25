@@ -14,7 +14,6 @@ module MQuickJS
     # @param http [Hash, nil] HTTP configuration options (enables fetch() in JavaScript)
     #
     # @option http [Array<String>] :whitelist URL patterns to allow (e.g., ['https://api.github.com/**'])
-    # @option http [Array<String>] :blocked_ips IP addresses/CIDR ranges to block
     # @option http [Integer] :max_requests Maximum requests per eval (default: 10)
     # @option http [Integer] :max_concurrent Maximum concurrent requests (default: 2)
     # @option http [Integer] :request_timeout Request timeout in ms (default: 5000)

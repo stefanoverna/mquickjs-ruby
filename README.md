@@ -286,7 +286,6 @@ sandbox = MQuickJS::Sandbox.new(
     whitelist: ['https://api.github.com/**', 'https://api.stripe.com/v1/**'],
 
     # Security options
-    blocked_ips: ['127.0.0.1', '10.0.0.0/8'],  # Additional IPs to block
     block_private_ips: true,                    # Block private/local IPs (default: true)
     allowed_ports: [80, 443],                   # Allowed ports (default: [80, 443])
     allowed_methods: ['GET', 'POST'],           # HTTP methods allowed (default: GET, POST, PUT, DELETE, PATCH, HEAD)
@@ -619,13 +618,12 @@ sandbox = MQuickJS::Sandbox.new(
 
 #### IP Address Blocking
 
-By default, private and local IP addresses are blocked. You can add additional blocked IPs:
+By default, private and local IP addresses are blocked:
 
 ```ruby
 sandbox = MQuickJS::Sandbox.new(
   http: {
     whitelist: ['https://api.example.com/**'],
-    blocked_ips: ['203.0.113.0/24'],     # Additional IPs to block
     block_private_ips: true               # Block private IPs (default: true)
   }
 )
@@ -700,12 +698,6 @@ sandbox = MQuickJS::Sandbox.new(
     whitelist: [
       'https://api.github.com/**',
       'https://api.stripe.com/v1/**'
-    ],
-
-    # Additional blocked IPs (private IPs blocked by default)
-    blocked_ips: [
-      '100.64.0.0/10',   # Shared address space
-      '198.18.0.0/15'    # Benchmark testing
     ],
 
     # Strict limits
