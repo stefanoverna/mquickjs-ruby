@@ -10,10 +10,18 @@ Rake::ExtensionTask.new('mquickjs_native') do |ext|
 end
 
 # Test task
-Rake::TestTask.new do |t|
+Rake::TestTask.new(:test) do |t|
   t.libs << 'lib'
   t.test_files = FileList['test/**/*_test.rb']
   t.verbose = true
+end
+
+# Clean task
+task :clean do
+  sh 'cd ext/mquickjs && make clean' if File.exist?('ext/mquickjs/Makefile')
+  rm_f 'lib/mquickjs/mquickjs_native.so'
+  rm_f Dir.glob('ext/mquickjs/*.o')
+  rm_f 'ext/mquickjs/Makefile'
 end
 
 # Benchmark task
@@ -60,4 +68,5 @@ namespace :benchmark do
   end
 end
 
-task default: [:compile, :test]
+# Default: clean, compile, test
+task default: [:clean, :compile, :test]

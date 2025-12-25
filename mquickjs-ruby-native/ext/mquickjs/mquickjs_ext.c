@@ -407,6 +407,148 @@ static VALUE js_to_ruby(JSContext *ctx, JSValue val) {
     return Qnil;
 }
 
+// Convert Ruby value to JavaScript value
+static JSValue ruby_to_js(JSContext *ctx, VALUE rb_val) {
+    // nil -> null
+    if (NIL_P(rb_val)) {
+        return JS_NULL;
+    }
+
+    // Boolean -> true/false
+    if (rb_val == Qtrue) {
+        return JS_TRUE;
+    }
+    if (rb_val == Qfalse) {
+        return JS_FALSE;
+    }
+
+    // Get Ruby type
+    int type = TYPE(rb_val);
+
+    // Integer -> number
+    if (type == T_FIXNUM) {
+        int64_t val = NUM2LL(rb_val);
+        // Use Int32 for small integers, Int64 for larger ones
+        if (val >= INT32_MIN && val <= INT32_MAX) {
+            return JS_NewInt32(ctx, (int32_t)val);
+        } else {
+            return JS_NewInt64(ctx, val);
+        }
+    }
+
+    // Float -> number
+    if (type == T_FLOAT) {
+        double val = NUM2DBL(rb_val);
+        return JS_NewFloat64(ctx, val);
+    }
+
+    // String -> string
+    if (type == T_STRING) {
+        const char *str = StringValueCStr(rb_val);
+        return JS_NewString(ctx, str);
+    }
+
+    // Symbol -> string
+    if (type == T_SYMBOL) {
+        const char *str = rb_id2name(SYM2ID(rb_val));
+        return JS_NewString(ctx, str);
+    }
+
+    // Array -> array
+    if (type == T_ARRAY) {
+        long len = RARRAY_LEN(rb_val);
+        JSValue js_array = JS_NewArray(ctx, (int)len);
+
+        if (JS_IsException(js_array)) {
+            return js_array;
+        }
+
+        for (long i = 0; i < len; i++) {
+            VALUE rb_element = rb_ary_entry(rb_val, i);
+            JSValue js_element = ruby_to_js(ctx, rb_element);
+
+            if (JS_IsException(js_element)) {
+                return js_element;
+            }
+
+            JS_SetPropertyUint32(ctx, js_array, (uint32_t)i, js_element);
+        }
+
+        return js_array;
+    }
+
+    // Hash -> object
+    if (type == T_HASH) {
+        JSValue js_obj = JS_NewObject(ctx);
+
+        if (JS_IsException(js_obj)) {
+            return js_obj;
+        }
+
+        // Helper struct for hash iteration
+        struct hash_iter_data {
+            JSContext *ctx;
+            JSValue obj;
+            int has_error;
+        };
+
+        struct hash_iter_data iter_data = {
+            .ctx = ctx,
+            .obj = js_obj,
+            .has_error = 0
+        };
+
+        // Iteration callback
+        int hash_foreach_cb(VALUE key, VALUE val, VALUE arg) {
+            struct hash_iter_data *data = (struct hash_iter_data *)arg;
+
+            if (data->has_error) {
+                return ST_STOP;
+            }
+
+            // Convert key to string (symbols and strings are common)
+            const char *key_str;
+            VALUE key_str_val;
+
+            if (TYPE(key) == T_SYMBOL) {
+                key_str = rb_id2name(SYM2ID(key));
+            } else if (TYPE(key) == T_STRING) {
+                key_str = StringValueCStr(key);
+            } else {
+                // Convert other types to string
+                key_str_val = rb_funcall(key, rb_intern("to_s"), 0);
+                key_str = StringValueCStr(key_str_val);
+            }
+
+            // Convert value
+            JSValue js_val = ruby_to_js(data->ctx, val);
+
+            if (JS_IsException(js_val)) {
+                data->has_error = 1;
+                return ST_STOP;
+            }
+
+            // Set property
+            JS_SetPropertyStr(data->ctx, data->obj, key_str, js_val);
+
+            return ST_CONTINUE;
+        }
+
+        // Iterate over hash
+        rb_hash_foreach(rb_val, hash_foreach_cb, (VALUE)&iter_data);
+
+        if (iter_data.has_error) {
+            return JS_EXCEPTION;
+        }
+
+        return js_obj;
+    }
+
+    // Unsupported type - convert to string representation
+    VALUE rb_str = rb_funcall(rb_val, rb_intern("to_s"), 0);
+    return JS_NewString(ctx, StringValueCStr(rb_str));
+}
+
 // Sandbox#initialize
 static VALUE sandbox_initialize(int argc, VALUE *argv, VALUE self) {
     ContextWrapper *wrapper;
@@ -558,6 +700,34 @@ static VALUE sandbox_eval(VALUE self, VALUE code_str) {
     return result_obj;
 }
 
+// Sandbox#set_variable
+static VALUE sandbox_set_variable(VALUE self, VALUE name, VALUE value) {
+    ContextWrapper *wrapper;
+    TypedData_Get_Struct(self, ContextWrapper, &sandbox_type, wrapper);
+
+    if (!wrapper || !wrapper->ctx) {
+        rb_raise(rb_eRuntimeError, "Invalid sandbox state");
+    }
+
+    // Get variable name
+    const char *var_name = StringValueCStr(name);
+
+    // Convert Ruby value to JS value
+    JSValue js_val = ruby_to_js(wrapper->ctx, value);
+
+    if (JS_IsException(js_val)) {
+        rb_raise(rb_eRuntimeError, "Failed to convert Ruby value to JavaScript value");
+    }
+
+    // Get global object
+    JSValue global = JS_GetGlobalObject(wrapper->ctx);
+
+    // Set property on global object
+    JS_SetPropertyStr(wrapper->ctx, global, var_name, js_val);
+
+    return value;
+}
+
 // Module initialization
 void Init_mquickjs_native(void) {
     // Define module and classes
@@ -575,5 +745,6 @@ void Init_mquickjs_native(void) {
     rb_define_alloc_func(rb_cSandbox, sandbox_alloc);
     rb_define_method(rb_cSandbox, "initialize", sandbox_initialize, -1);
     rb_define_method(rb_cSandbox, "eval", sandbox_eval, 1);
+    rb_define_method(rb_cSandbox, "set_variable", sandbox_set_variable, 2);
     rb_define_method(rb_cSandbox, "http_callback=", sandbox_set_http_callback, 1);
 }

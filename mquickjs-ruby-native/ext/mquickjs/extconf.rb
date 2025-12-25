@@ -3,7 +3,8 @@
 require 'mkmf'
 
 # Configuration
-MQUICKJS_DIR = '/tmp/mquickjs'
+# Use current directory for mquickjs source files
+MQUICKJS_DIR = File.expand_path('.', __dir__)
 
 # Add mquickjs include directory
 $INCFLAGS << " -I#{MQUICKJS_DIR}"
