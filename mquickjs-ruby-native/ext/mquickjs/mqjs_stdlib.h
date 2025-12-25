@@ -559,7 +559,7 @@ static const uint64_t __attribute((aligned(64))) js_stdlib_table[] = {
   (JS_MTAG_STRING << 1) | (1 << JS_MTAG_BITS) | (1 << (JS_MTAG_BITS + 1)) | (0 << (JS_MTAG_BITS + 2)) | (5 << (JS_MTAG_BITS + 3)), /* "fetch" (offset=552) */
   0x0000006863746566,
 
-  /* sorted atom table (offset=555) */
+  /* sorted atom table (offset=554) */
   JS_VALUE_ARRAY_HEADER(232),
   JS_ROM_VALUE(97), /* empty */
   JS_ROM_VALUE(147), /* _Infinity */
@@ -2674,9 +2674,9 @@ const JSSTDLibraryDef js_stdlib = {
   js_stdlib_table,
   js_c_function_table,
   js_c_finalizer_table,
-  2014,
+  2016,
   65,
-  555,
+  554,
   1925,
   JS_CLASS_COUNT,
 };

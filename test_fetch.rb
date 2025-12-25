@@ -1,10 +1,10 @@
 #!/usr/bin/env ruby
 # Test script for fetch() implementation
 
-require_relative 'mquickjs-ruby-native/ext/mquickjs/mquickjs_native'
+require_relative 'mquickjs-ruby-native/lib/mquickjs'
 
 # Create a sandbox
-sandbox = MQuickJS::NativeSandbox.new
+sandbox = MQuickJS::Sandbox.new
 
 # Set up the HTTP callback
 # This callback will be called from C when fetch() is invoked from JavaScript
