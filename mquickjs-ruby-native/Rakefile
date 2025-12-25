@@ -1,0 +1,19 @@
+# frozen_string_literal: true
+
+require 'rake/extensiontask'
+require 'rake/testtask'
+
+# Build the native extension
+Rake::ExtensionTask.new('mquickjs_native') do |ext|
+  ext.lib_dir = 'lib/mquickjs'
+  ext.ext_dir = 'ext/mquickjs'
+end
+
+# Test task
+Rake::TestTask.new do |t|
+  t.libs << 'lib'
+  t.test_files = FileList['test/**/*_test.rb']
+  t.verbose = true
+end
+
+task default: [:compile, :test]
