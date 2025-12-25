@@ -255,28 +255,18 @@ puts result.console_output  # => "Starting calculation...\nSum: 4950\n"
 puts result.console_truncated?  # => false (output fit within limit)
 ```
 
-### HTTP Requests (Experimental)
+### HTTP Requests
 
-MQuickJS provides a native `fetch()` function that works via a Ruby callback mechanism. This allows JavaScript code to make HTTP requests while Ruby controls the actual network access.
-
-#### Using Native fetch()
+MQuickJS provides a native `fetch()` function for JavaScript. Enable it by passing HTTP configuration when creating the sandbox:
 
 ```ruby
 require 'mquickjs'
 
-# Configure HTTP security
-http_config = MQuickJS::HTTPConfig.new(
-  whitelist: ['https://api.github.com/**'],
-  blocked_ips: ['127.0.0.1', '10.0.0.0/8']
+sandbox = MQuickJS::Sandbox.new(
+  http: {
+    whitelist: ['https://api.github.com/**']
+  }
 )
-http_executor = MQuickJS::HTTPExecutor.new(http_config)
-
-sandbox = MQuickJS::Sandbox.new
-
-# Configure HTTP callback using the secure executor
-sandbox.http_callback = lambda do |method, url, body, headers|
-  http_executor.execute(method, url, body: body, headers: headers)
-end
 
 # Now fetch() works in JavaScript
 result = sandbox.eval(<<~JS)
@@ -285,6 +275,33 @@ result = sandbox.eval(<<~JS)
 JS
 
 result.value  # => "octocat"
+```
+
+#### HTTP Configuration Options
+
+```ruby
+sandbox = MQuickJS::Sandbox.new(
+  http: {
+    # URL whitelist (required for fetch to work)
+    whitelist: ['https://api.github.com/**', 'https://api.stripe.com/v1/**'],
+
+    # Security options
+    block_private_ips: true,                    # Block private/local IPs (default: true)
+    allowed_ports: [80, 443],                   # Allowed ports (default: [80, 443])
+    allowed_methods: ['GET', 'POST'],           # HTTP methods allowed (default: GET, POST, PUT, DELETE, PATCH, HEAD)
+
+    # Rate limiting
+    max_requests: 10,                           # Max requests per eval (default: 10)
+    max_concurrent: 2,                          # Max concurrent requests (default: 2)
+
+    # Size limits
+    max_request_size: 1_048_576,                # Max request body size (default: 1MB)
+    max_response_size: 1_048_576,               # Max response size (default: 1MB)
+
+    # Timeout
+    request_timeout: 5000                       # Request timeout in ms (default: 5000)
+  }
+)
 ```
 
 ## JavaScript Limitations
@@ -574,16 +591,18 @@ puts result.console_output.length  # => ~100 bytes (truncated)
 
 ### HTTP Security
 
-MQuickJS provides comprehensive HTTP security controls through `HTTPConfig` and `HTTPExecutor`:
+MQuickJS provides comprehensive HTTP security controls through the `http:` configuration option:
 
 #### URL Whitelist
 
 ```ruby
-http_config = MQuickJS::HTTPConfig.new(
-  whitelist: [
-    'https://api.github.com/**',       # Allow GitHub API
-    'https://api.example.com/public/**' # Allow specific endpoints
-  ]
+sandbox = MQuickJS::Sandbox.new(
+  http: {
+    whitelist: [
+      'https://api.github.com/**',       # Allow GitHub API
+      'https://api.example.com/public/**' # Allow specific endpoints
+    ]
+  }
 )
 ```
 
@@ -599,19 +618,22 @@ http_config = MQuickJS::HTTPConfig.new(
 
 #### IP Address Blocking
 
+By default, private and local IP addresses are blocked:
+
 ```ruby
-http_config = MQuickJS::HTTPConfig.new(
-  blocked_ips: [
-    '127.0.0.1',      # Localhost
-    '10.0.0.0/8',     # Private network
-    '172.16.0.0/12',  # Private network
-    '192.168.0.0/16', # Private network
-    '169.254.0.0/16', # Link-local
-    'fc00::/7',       # IPv6 private
-    '::1'             # IPv6 localhost
-  ]
+sandbox = MQuickJS::Sandbox.new(
+  http: {
+    whitelist: ['https://api.example.com/**'],
+    block_private_ips: true               # Block private IPs (default: true)
+  }
 )
 ```
+
+**Automatically blocked when `block_private_ips: true`:**
+- `127.0.0.0/8` - Loopback
+- `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` - Private networks
+- `169.254.0.0/16` - Link-local (AWS metadata)
+- `::1/128`, `fe80::/10` - IPv6 loopback and link-local
 
 **Prevents:**
 - SSRF (Server-Side Request Forgery) attacks
@@ -627,7 +649,13 @@ http_config = MQuickJS::HTTPConfig.new(
 #### Rate Limiting
 
 ```ruby
-http_config = MQuickJS::HTTPConfig.new(rate_limit: 10)
+sandbox = MQuickJS::Sandbox.new(
+  http: {
+    whitelist: ['https://api.example.com/**'],
+    max_requests: 5,    # Max requests per eval
+    max_concurrent: 2   # Max concurrent requests
+  }
+)
 ```
 
 **How it works:**
@@ -640,64 +668,48 @@ http_config = MQuickJS::HTTPConfig.new(rate_limit: 10)
 - API quota exhaustion
 - Denial of service via excessive requests
 
-#### Request Timeouts
+#### Request Timeouts and Size Limits
 
 ```ruby
-http_config = MQuickJS::HTTPConfig.new(timeout: 5000)  # 5 seconds
+sandbox = MQuickJS::Sandbox.new(
+  http: {
+    whitelist: ['https://api.example.com/**'],
+    request_timeout: 3000,        # 3 second timeout
+    max_request_size: 100_000,    # 100KB max request body
+    max_response_size: 500_000    # 500KB max response
+  }
+)
 ```
 
 **Prevents:**
 - Hanging on slow servers
 - Intentional delay attacks
-- Resource exhaustion via long-running requests
-
-#### Response Size Limits
-
-```ruby
-http_config = MQuickJS::HTTPConfig.new(max_response_size: 1_000_000)  # 1MB
-```
-
-**Prevents:**
 - Memory exhaustion via large responses
-- Bandwidth exhaustion
-- Processing of unexpectedly large data
 
 #### Complete HTTP Security Example
 
 ```ruby
 # Production-grade HTTP security configuration
-http_config = MQuickJS::HTTPConfig.new(
-  # Only allow specific trusted APIs
-  whitelist: [
-    'https://api.github.com/**',
-    'https://api.stripe.com/v1/**'
-  ],
+sandbox = MQuickJS::Sandbox.new(
+  memory_limit: 100_000,
+  timeout_ms: 10_000,
+  http: {
+    # Only allow specific trusted APIs
+    whitelist: [
+      'https://api.github.com/**',
+      'https://api.stripe.com/v1/**'
+    ],
 
-  # Block all internal/private IPs
-  blocked_ips: [
-    '127.0.0.1', '::1',              # Loopback
-    '10.0.0.0/8',                     # Private
-    '172.16.0.0/12',                  # Private
-    '192.168.0.0/16',                 # Private
-    '169.254.0.0/16',                 # Link-local
-    'fc00::/7',                       # IPv6 private
-    '100.64.0.0/10',                  # Shared address space
-    '198.18.0.0/15',                  # Benchmark testing
-    '240.0.0.0/4'                     # Reserved
-  ],
+    # Strict limits
+    max_requests: 5,
+    max_concurrent: 2,
+    request_timeout: 3000,
+    max_response_size: 500_000,
 
-  # Strict limits
-  rate_limit: 5,                      # Max 5 requests per eval
-  timeout: 3000,                      # 3 second timeout
-  max_response_size: 500_000          # 500KB max response
+    # Only allow GET and POST
+    allowed_methods: ['GET', 'POST']
+  }
 )
-
-http_executor = MQuickJS::HTTPExecutor.new(http_config)
-
-sandbox = MQuickJS::Sandbox.new
-sandbox.http_callback = lambda do |method, url, body, headers|
-  http_executor.execute(method, url, body: body, headers: headers)
-end
 
 # Safe execution with security controls
 begin
@@ -777,13 +789,19 @@ Convenience method for one-shot JavaScript evaluation.
 - `options` (Hash, optional):
   - `:memory_limit` (Integer): Memory limit in bytes (default: 50,000)
   - `:timeout_ms` (Integer): Timeout in milliseconds (default: 5,000)
-  - `:console_log_max_size` (Integer): Console output limit (default: 10,000)
+  - `:http` (Hash): HTTP configuration to enable fetch() (see [HTTP Requests](#http-requests))
 
 **Returns:** `MQuickJS::Result`
 
 **Example:**
 ```ruby
 result = MQuickJS.eval("2 + 2", memory_limit: 10_000, timeout_ms: 1000)
+
+# With HTTP enabled
+result = MQuickJS.eval(
+  "fetch('https://api.example.com/data').body",
+  http: { whitelist: ['https://api.example.com/**'] }
+)
 ```
 
 ### MQuickJS::Sandbox.new(options = {})
@@ -795,13 +813,15 @@ Create a reusable JavaScript sandbox.
   - `:memory_limit` (Integer): Memory limit in bytes (default: 50,000)
   - `:timeout_ms` (Integer): Timeout in milliseconds (default: 5,000)
   - `:console_log_max_size` (Integer): Console output limit (default: 10,000)
+  - `:http` (Hash): HTTP configuration to enable fetch() (see [HTTP Requests](#http-requests))
 
 **Example:**
 ```ruby
 sandbox = MQuickJS::Sandbox.new(
   memory_limit: 100_000,
   timeout_ms: 2000,
-  console_log_max_size: 20_000
+  console_log_max_size: 20_000,
+  http: { whitelist: ['https://api.example.com/**'] }
 )
 ```
 
@@ -854,40 +874,6 @@ result = sandbox.eval('console.log("test"); 42')
 result.value           # => 42
 result.console_output  # => "test\n"
 result.console_truncated?  # => false
-```
-
-### MQuickJS::HTTPConfig.new(options = {})
-
-Configure HTTP security rules.
-
-**Parameters:**
-- `options` (Hash, optional):
-  - `:whitelist` (Array<String>): Allowed URL patterns
-  - `:blocked_ips` (Array<String>): Blocked IP addresses/ranges
-  - `:rate_limit` (Integer): Max requests per evaluation (default: 10)
-  - `:timeout` (Integer): Request timeout in ms (default: 5000)
-  - `:max_response_size` (Integer): Max response size in bytes (default: 1MB)
-
-**Example:**
-```ruby
-config = MQuickJS::HTTPConfig.new(
-  whitelist: ['https://api.example.com/**'],
-  blocked_ips: ['127.0.0.1', '10.0.0.0/8'],
-  rate_limit: 5,
-  timeout: 3000
-)
-```
-
-### MQuickJS::HTTPExecutor.new(config)
-
-Create HTTP executor with security configuration.
-
-**Parameters:**
-- `config` (HTTPConfig): Security configuration
-
-**Example:**
-```ruby
-executor = MQuickJS::HTTPExecutor.new(http_config)
 ```
 
 ## Performance
@@ -1093,15 +1079,13 @@ gem install mquickjs
 
 **Problem:** `fetch() is not enabled - HTTP callback not configured` error
 
-**Cause:** The `http_callback` has not been set on the sandbox
+**Cause:** HTTP was not enabled when creating the sandbox
 
-**Solution:** Set an HTTP callback before using fetch():
+**Solution:** Pass `http:` configuration when creating the sandbox:
 ```ruby
-sandbox = MQuickJS::Sandbox.new
-sandbox.http_callback = lambda do |method, url, body, headers|
-  # Handle HTTP request and return response hash
-  { status: 200, statusText: "OK", body: "...", headers: {} }
-end
+sandbox = MQuickJS::Sandbox.new(
+  http: { whitelist: ['https://example.com/**'] }
+)
 sandbox.eval("fetch('https://example.com')")
 ```
 
