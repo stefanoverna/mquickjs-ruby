@@ -2,3 +2,4 @@
 *.so
 Makefile
 tmp/
+ext/mquickjs/mqjs_stdlib_gen
