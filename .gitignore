@@ -9,6 +9,11 @@ mkmf.log
 .bundle
 vendor/
 
+# Backup files
+*.old.*
+*.bak
+*~
+
 # Editor files
 .vscode/
 .idea/
