@@ -16,4 +16,48 @@ Rake::TestTask.new do |t|
   t.verbose = true
 end
 
+# Benchmark task
+desc 'Run benchmarks'
+task :benchmark => :compile do
+  ruby 'benchmark/runner.rb'
+end
+
+# Individual benchmark tasks
+namespace :benchmark do
+  desc 'Run simple operations benchmark'
+  task :simple => :compile do
+    ruby 'benchmark/simple_operations.rb'
+  end
+
+  desc 'Run computation benchmark'
+  task :computation => :compile do
+    ruby 'benchmark/computation.rb'
+  end
+
+  desc 'Run JSON operations benchmark'
+  task :json => :compile do
+    ruby 'benchmark/json_operations.rb'
+  end
+
+  desc 'Run array operations benchmark'
+  task :array => :compile do
+    ruby 'benchmark/array_operations.rb'
+  end
+
+  desc 'Run sandbox overhead benchmark'
+  task :overhead => :compile do
+    ruby 'benchmark/sandbox_overhead.rb'
+  end
+
+  desc 'Run memory limits benchmark'
+  task :memory => :compile do
+    ruby 'benchmark/memory_limits.rb'
+  end
+
+  desc 'Run console output benchmark'
+  task :console => :compile do
+    ruby 'benchmark/console_output.rb'
+  end
+end
+
 task default: [:compile, :test]
