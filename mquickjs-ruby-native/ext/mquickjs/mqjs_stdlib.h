@@ -556,9 +556,11 @@ static const uint64_t __attribute((aligned(64))) js_stdlib_table[] = {
   (JS_MTAG_STRING << 1) | (1 << JS_MTAG_BITS) | (1 << (JS_MTAG_BITS + 1)) | (0 << (JS_MTAG_BITS + 2)) | (12 << (JS_MTAG_BITS + 3)), /* "clearTimeout" (offset=549) */
   0x6d69547261656c63,
   0x0000000074756f65,
+  (JS_MTAG_STRING << 1) | (1 << JS_MTAG_BITS) | (1 << (JS_MTAG_BITS + 1)) | (0 << (JS_MTAG_BITS + 2)) | (5 << (JS_MTAG_BITS + 3)), /* "fetch" (offset=552) */
+  0x0000006863746566,
 
-  /* sorted atom table (offset=552) */
-  JS_VALUE_ARRAY_HEADER(231),
+  /* sorted atom table (offset=555) */
+  JS_VALUE_ARRAY_HEADER(232),
   JS_ROM_VALUE(97), /* empty */
   JS_ROM_VALUE(147), /* _Infinity */
   JS_ROM_VALUE(117), /* _eval_ */
@@ -656,6 +658,7 @@ static const uint64_t __attribute((aligned(64))) js_stdlib_table[] = {
   JS_ROM_VALUE(68), /* export */
   JS_ROM_VALUE(70), /* extends */
   JS_ROM_VALUE(2), /* false */
+  JS_ROM_VALUE(552), /* fetch */
   JS_ROM_VALUE(325), /* filter */
   JS_ROM_VALUE(52), /* finally */
   JS_ROM_VALUE(429), /* flags */
@@ -2655,6 +2658,9 @@ static const JSCFunctionDef js_c_function_table[] = {
   { { .generic = js_clearTimeout },
     JS_ROM_VALUE(549) /* clearTimeout */,
     JS_CFUNC_generic, 1, 0 },
+  { { .generic = js_fetch },
+    JS_ROM_VALUE(552) /* fetch */,
+    JS_CFUNC_generic, 2, 0 },
 };
 
 #ifndef JS_CLASS_COUNT
@@ -2669,8 +2675,8 @@ const JSSTDLibraryDef js_stdlib = {
   js_c_function_table,
   js_c_finalizer_table,
   2014,
-  64,
-  552,
+  65,
+  555,
   1925,
   JS_CLASS_COUNT,
 };

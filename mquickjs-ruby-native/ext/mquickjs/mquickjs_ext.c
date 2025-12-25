@@ -53,6 +53,7 @@ static JSValue js_performance_now(JSContext *ctx, JSValue *this_val, int argc, J
 static JSValue js_load(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
 static JSValue js_setTimeout(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
 static JSValue js_clearTimeout(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
+static JSValue js_fetch(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv);
 
 // Include the standard library
 #include "mqjs_stdlib.h"
@@ -184,6 +185,129 @@ static JSValue js_setTimeout(JSContext *ctx, JSValue *this_val, int argc, JSValu
 
 static JSValue js_clearTimeout(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv) {
     return JS_ThrowError(ctx, JS_CLASS_ERROR, "clearTimeout() is disabled in sandbox mode");
+}
+
+// fetch() implementation
+static JSValue js_fetch(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv) {
+    ContextWrapper *wrapper = current_wrapper;
+    if (!wrapper) {
+        return JS_ThrowError(ctx, JS_CLASS_ERROR, "fetch() called outside sandbox context");
+    }
+
+    if (wrapper->rb_http_callback == Qnil) {
+        return JS_ThrowError(ctx, JS_CLASS_ERROR, "fetch() is not enabled - HTTP callback not configured");
+    }
+
+    // Parse arguments
+    if (argc < 1) {
+        return JS_ThrowError(ctx, JS_CLASS_TYPE_ERROR, "fetch() requires at least 1 argument (url)");
+    }
+
+    // Get URL
+    JSCStringBuf url_buf;
+    const char *url = JS_ToCString(ctx, argv[0], &url_buf);
+    if (!url) {
+        return JS_ThrowError(ctx, JS_CLASS_TYPE_ERROR, "fetch() url must be a string");
+    }
+
+    // Parse options (second argument)
+    const char *method = "GET";
+    const char *body = NULL;
+    VALUE rb_headers = rb_hash_new();
+
+    if (argc >= 2 && !JS_IsUndefined(argv[1]) && !JS_IsNull(argv[1])) {
+        // Get method
+        JSValue method_val = JS_GetPropertyStr(ctx, argv[1], "method");
+        if (!JS_IsUndefined(method_val) && !JS_IsNull(method_val)) {
+            JSCStringBuf method_buf;
+            const char *method_str = JS_ToCString(ctx, method_val, &method_buf);
+            if (method_str) {
+                method = method_str;
+            }
+        }
+
+        // Get body
+        JSValue body_val = JS_GetPropertyStr(ctx, argv[1], "body");
+        if (!JS_IsUndefined(body_val) && !JS_IsNull(body_val)) {
+            JSCStringBuf body_buf;
+            body = JS_ToCString(ctx, body_val, &body_buf);
+        }
+
+        // Get headers - skip for now
+        // JSValue headers_val = JS_GetPropertyStr(ctx, argv[1], "headers");
+    }
+
+    // Call Ruby HTTP executor
+    VALUE rb_url = rb_str_new2(url);
+    VALUE rb_method = rb_str_new2(method);
+    VALUE rb_body = body ? rb_str_new2(body) : Qnil;
+
+    // Call the Ruby callback: http_callback.call(method, url, body, headers)
+    VALUE rb_response = rb_funcall(wrapper->rb_http_callback, rb_intern("call"), 4,
+                                     rb_method, rb_url, rb_body, rb_headers);
+
+    // Extract response fields from Ruby hash
+    VALUE rb_status = rb_hash_aref(rb_response, ID2SYM(rb_intern("status")));
+    VALUE rb_status_text = rb_hash_aref(rb_response, ID2SYM(rb_intern("statusText")));
+    VALUE rb_response_body = rb_hash_aref(rb_response, ID2SYM(rb_intern("body")));
+    VALUE rb_response_headers = rb_hash_aref(rb_response, ID2SYM(rb_intern("headers")));
+
+    int status = NIL_P(rb_status) ? 200 : NUM2INT(rb_status);
+    const char *status_text = NIL_P(rb_status_text) ? "OK" : StringValueCStr(rb_status_text);
+    const char *response_body = NIL_P(rb_response_body) ? "" : StringValueCStr(rb_response_body);
+
+    // Create Response object
+    JSValue response_obj = JS_NewObject(ctx);
+
+    // Add properties
+    JS_SetPropertyStr(ctx, response_obj, "status", JS_NewInt32(ctx, status));
+    JS_SetPropertyStr(ctx, response_obj, "statusText", JS_NewString(ctx, status_text));
+    JS_SetPropertyStr(ctx, response_obj, "ok", status >= 200 && status < 300 ? JS_TRUE : JS_FALSE);
+    JS_SetPropertyStr(ctx, response_obj, "body", JS_NewString(ctx, response_body));
+
+    // Add headers object (simplified - just store the body for now)
+    JSValue headers_obj = JS_NewObject(ctx);
+    JS_SetPropertyStr(ctx, response_obj, "headers", headers_obj);
+
+    // Add text() method - returns body as-is
+    // Note: We're storing the body as a property so text() can just return it
+    // In a full implementation, we'd create actual method functions
+
+    // Add json() method equivalent - we'll rely on users doing JSON.parse(response.body)
+    // since we can't easily create function properties with mquickjs
+
+    return response_obj;
+}
+
+// Response.text() helper - to be called as a separate function
+static JSValue js_response_text(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv) {
+    if (argc < 1) {
+        return JS_ThrowError(ctx, JS_CLASS_TYPE_ERROR, "responseText() requires a response object");
+    }
+    return JS_GetPropertyStr(ctx, argv[0], "body");
+}
+
+// Response.json() helper - to be called as a separate function
+static JSValue js_response_json(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv) {
+    if (argc < 1) {
+        return JS_ThrowError(ctx, JS_CLASS_TYPE_ERROR, "responseJson() requires a response object");
+    }
+
+    JSValue body = JS_GetPropertyStr(ctx, argv[0], "body");
+
+    // Get the global object
+    JSValue global = JS_GetGlobalObject(ctx);
+    JSValue json_obj = JS_GetPropertyStr(ctx, global, "JSON");
+    JSValue parse_func = JS_GetPropertyStr(ctx, json_obj, "parse");
+
+    // Create arguments array for JSON.parse
+    JSValue parse_argv[1] = { body };
+
+    // Note: mquickjs doesn't have JS_Call in the same way as QuickJS
+    // We'll need to use eval as a workaround
+    // For now, just return the body and let users call JSON.parse manually
+
+    return body;
 }
 
 // Ruby C API helper functions
@@ -353,6 +477,21 @@ static VALUE sandbox_initialize(int argc, VALUE *argv, VALUE self) {
     return self;
 }
 
+// Sandbox#http_callback=
+static VALUE sandbox_set_http_callback(VALUE self, VALUE callback) {
+    ContextWrapper *wrapper;
+    TypedData_Get_Struct(self, ContextWrapper, &sandbox_type, wrapper);
+
+    if (!wrapper) {
+        rb_raise(rb_eRuntimeError, "Invalid sandbox state");
+    }
+
+    // Store the callback (Ruby will handle GC)
+    wrapper->rb_http_callback = callback;
+
+    return callback;
+}
+
 // Sandbox#eval
 static VALUE sandbox_eval(VALUE self, VALUE code_str) {
     ContextWrapper *wrapper;
@@ -436,4 +575,5 @@ void Init_mquickjs_native(void) {
     rb_define_alloc_func(rb_cSandbox, sandbox_alloc);
     rb_define_method(rb_cSandbox, "initialize", sandbox_initialize, -1);
     rb_define_method(rb_cSandbox, "eval", sandbox_eval, 1);
+    rb_define_method(rb_cSandbox, "http_callback=", sandbox_set_http_callback, 1);
 }
