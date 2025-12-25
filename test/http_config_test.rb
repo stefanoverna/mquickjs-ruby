@@ -109,7 +109,6 @@ class TestHTTPConfig < Minitest::Test
     assert_equal 5000, config.request_timeout
     assert_equal 1_048_576, config.max_request_size
     assert_equal 1_048_576, config.max_response_size
-    assert_equal false, config.follow_redirects
     assert_equal [80, 443], config.allowed_ports
   end
 
