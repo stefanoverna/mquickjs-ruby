@@ -8,7 +8,8 @@ High-performance JavaScript sandbox for Ruby using native C extension.
 - ✅ **Memory-safe execution** - Fixed memory buffers, isolated from system
 - ✅ **CPU limiting** - Configurable timeout enforcement
 - ✅ **Console.log capture** - Automatic console output capture
-- ✅ **Complete test coverage** - All 27 tests passing (51 assertions)
+- ✅ **Complete test coverage** - 46 tests passing (116 assertions)
+- ✅ **HTTP infrastructure** - Complete Ruby layer with security
 - ✅ **Production-ready** - Proper Ruby C API integration
 
 ## Building
@@ -28,9 +29,20 @@ cp mquickjs_native.so ../../lib/mquickjs/
 ## Testing
 
 ```bash
-ruby -I lib test/mquickjs_test.rb
-# 27 runs, 51 assertions, 0 failures
+# Run all tests
+ruby -I lib test/run_all_tests.rb
+# 46 runs, 116 assertions, 0 failures
+
+# Individual test suites:
+ruby -I lib test/mquickjs_test.rb       # 27 sandbox tests (51 assertions)
+ruby -I lib test/http_config_test.rb    # 13 HTTP config tests (46 assertions)
+ruby -I lib test/http_executor_test.rb  # 6 HTTP executor tests (19 assertions)
 ```
+
+**Test Coverage:**
+- ✅ JavaScript sandbox (memory limits, timeouts, console.log)
+- ✅ HTTP configuration (whitelist, IP blocking, security)
+- ✅ HTTP executor (validation, rate limiting, error handling)
 
 ## Usage
 
