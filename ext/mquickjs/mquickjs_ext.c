@@ -4,6 +4,7 @@
  */
 
 #include <ruby.h>
+#include <ruby/encoding.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -390,7 +391,9 @@ static VALUE js_to_ruby(JSContext *ctx, JSValue val) {
         JSCStringBuf buf;
         const char *str = JS_ToCString(ctx, val, &buf);
         if (str) {
-            return rb_str_new2(str);
+            VALUE rb_str = rb_str_new2(str);
+            rb_enc_associate(rb_str, rb_utf8_encoding());
+            return rb_str;
         }
     }
 
@@ -400,7 +403,9 @@ static VALUE js_to_ruby(JSContext *ctx, JSValue val) {
         JSCStringBuf buf;
         const char *str = JS_ToCString(ctx, str_val, &buf);
         if (str) {
-            return rb_str_new2(str);
+            VALUE rb_str = rb_str_new2(str);
+            rb_enc_associate(rb_str, rb_utf8_encoding());
+            return rb_str;
         }
     }
 
@@ -711,6 +716,11 @@ static VALUE sandbox_set_variable(VALUE self, VALUE name, VALUE value) {
 
     // Get variable name
     const char *var_name = StringValueCStr(name);
+
+    // Validate variable name is not empty
+    if (var_name[0] == '\0') {
+        rb_raise(rb_eArgError, "Variable name cannot be empty");
+    }
 
     // Convert Ruby value to JS value
     JSValue js_val = ruby_to_js(wrapper->ctx, value);

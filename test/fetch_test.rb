@@ -483,23 +483,18 @@ class FetchTest < Minitest::Test
     assert_match(/not enabled|callback not configured/i, error.message)
   end
 
-  def test_error_invalid_url_type_number
-    error = assert_raises(MQuickJS::JavaScriptError) do
-      @sandbox.eval("fetch(123)")
-    end
-
-    # Should either convert to string or throw error
-    # The implementation converts numbers to strings, so this actually succeeds
-    # We document this behavior
+  def test_url_type_number_converts_to_string
+    # Numbers are converted to strings (JavaScript behavior)
+    result = @sandbox.eval("fetch(123).status")
+    assert_equal 200, result.value
+    assert_equal "123", @http_requests[0][:url]
   end
 
-  def test_error_invalid_url_type_object
-    error = assert_raises(MQuickJS::JavaScriptError) do
-      @sandbox.eval("fetch({url: 'https://example.com'})")
-    end
-
-    # Objects get stringified to "[object Object]"
-    # This is expected JavaScript behavior
+  def test_url_type_object_converts_to_string
+    # Objects are stringified to "[object Object]" (JavaScript behavior)
+    result = @sandbox.eval("fetch({url: 'https://example.com'}).status")
+    assert_equal 200, result.value
+    assert_equal "[object Object]", @http_requests[0][:url]
   end
 
   def test_null_options

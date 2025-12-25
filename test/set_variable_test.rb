@@ -416,7 +416,7 @@ class TestSetVariable < Minitest::Test
     })
 
     transformation = <<~JS
-      ({
+      JSON.stringify({
         username: payload.user.toUpperCase(),
         event_type: payload.action,
         ts: payload.timestamp
@@ -424,7 +424,7 @@ class TestSetVariable < Minitest::Test
     JS
 
     result = sandbox.eval(transformation)
-    # Result will be string representation
+    # Result is JSON string representation
     assert_match(/ALICE/, result.value)
     assert_match(/login/, result.value)
   end
