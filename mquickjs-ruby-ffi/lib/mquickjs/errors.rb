@@ -26,6 +26,12 @@ module MQuickJS
   # Raised when HTTP request is blocked by whitelist
   class HTTPBlockedError < Error; end
 
+  # Raised when HTTP request limit is exceeded
+  class HTTPLimitError < Error; end
+
+  # Raised when HTTP request fails
+  class HTTPError < Error; end
+
   # Raised when invalid arguments are passed
   class ArgumentError < Error; end
 end
