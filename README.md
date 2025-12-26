@@ -1,7 +1,7 @@
 # MQuickJS - Secure JavaScript Sandbox for Ruby
 
 [![Gem Version](https://badge.fury.io/rb/mquickjs.svg)](https://badge.fury.io/rb/mquickjs)
-[![Build Status](https://github.com/yourusername/mquickjs-ruby/workflows/CI/badge.svg)](https://github.com/yourusername/mquickjs-ruby/actions)
+[![Build Status](https://github.com/stefanoverna/mquickjs-ruby/workflows/CI/badge.svg)](https://github.com/stefanoverna/mquickjs-ruby/actions)
 
 **MQuickJS** provides a secure, memory-safe JavaScript execution environment for Ruby applications. Built on [MicroQuickJS](https://bellard.org/mquickjs/) (a minimal QuickJS engine by Fabrice Bellard), it offers strict resource limits, sandboxed execution, and comprehensive HTTP security controls.
 
@@ -35,8 +35,6 @@ Perfect for running untrusted JavaScript code with guaranteed safety - evaluate 
     - [MQuickJS::JavaScriptError](#mquickjsjavascripterror)
 - [API Reference](#api-reference)
 - [Performance](#performance)
-- [Troubleshooting](#troubleshooting)
-- [Use Cases](#use-cases)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -103,7 +101,7 @@ All mquickjs source files are included in the repository - no separate checkout 
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/mquickjs-ruby.git
+git clone https://github.com/stefanoverna/mquickjs-ruby.git
 cd mquickjs-ruby
 
 # Build and test
@@ -297,7 +295,6 @@ sandbox = MQuickJS::Sandbox.new(
 
     # Rate limiting
     max_requests: 10,                           # Max requests per eval (default: 10)
-    max_concurrent: 2,                          # Max concurrent requests (default: 2)
 
     # Size limits
     max_request_size: 1_048_576,                # Max request body size (default: 1MB)
@@ -684,8 +681,7 @@ sandbox = MQuickJS::Sandbox.new(
 sandbox = MQuickJS::Sandbox.new(
   http: {
     whitelist: ['https://api.example.com/**'],
-    max_requests: 5,    # Max requests per eval
-    max_concurrent: 2   # Max concurrent requests
+    max_requests: 5    # Max requests per eval
   }
 )
 ```
@@ -734,7 +730,6 @@ sandbox = MQuickJS::Sandbox.new(
 
     # Strict limits
     max_requests: 5,
-    max_concurrent: 2,
     request_timeout: 3000,
     max_response_size: 500_000,
 
@@ -1211,249 +1206,15 @@ Comparison: Reuse vs Create New
    MQuickJS::Sandbox.new(memory_limit: 500_000)  # 500KB
    ```
 
-## Troubleshooting
-
-### Build Issues
-
-If tests crash or compilation fails:
-
-```bash
-rake clean
-rake
-```
-
-### Common Runtime Issues
-
-#### Syntax Errors with Modern JavaScript
-
-**Problem:** `SyntaxError: unexpected token`
-
-**Cause:** Using ES6+ features not supported by MicroQuickJS
-
-**Solution:** Use ES5 equivalents:
-```javascript
-// Arrow function
-[1,2,3].map(x => x * 2)
-
-// Function expression
-[1,2,3].map(function(x) { return x * 2 })
-```
-
-#### Memory Limit Errors
-
-**Problem:** `MQuickJS::MemoryLimitError: Memory limit exceeded`
-
-**Cause:** Code allocates too many objects/strings
-
-**Solutions:**
-1. Increase memory limit: `Sandbox.new(memory_limit: 100_000)`
-2. Optimize JavaScript to use less memory
-3. Process data in smaller chunks
-
-#### Timeout Errors
-
-**Problem:** `MQuickJS::TimeoutError: Execution timeout`
-
-**Cause:** Code takes too long to execute (loops, recursion)
-
-**Solutions:**
-1. Increase timeout: `Sandbox.new(timeout_ms: 10_000)`
-2. Optimize algorithm (avoid exponential complexity)
-3. Validate input sizes before execution
-
-#### Compilation Errors
-
-**Problem:** `extconf.rb failed` during gem installation
-
-**Cause:** Missing mquickjs source files
-
-**Solution:**
-```bash
-# Clone mquickjs source manually
-git clone https://github.com/bellard/mquickjs.git /tmp/mquickjs
-
-# Then install gem
-gem install mquickjs
-```
-
-#### HTTP Not Working
-
-**Problem:** `fetch() is not enabled - HTTP callback not configured` error
-
-**Cause:** HTTP was not enabled when creating the sandbox
-
-**Solution:** Pass `http:` configuration when creating the sandbox:
-```ruby
-sandbox = MQuickJS::Sandbox.new(
-  http: { whitelist: ['https://example.com/**'] }
-)
-sandbox.eval("fetch('https://example.com')")
-```
-
-### Debug Mode
-
-Enable verbose error messages:
-
-```ruby
-# Get detailed error information
-begin
-  sandbox.eval(code)
-rescue MQuickJS::JavaScriptError => e
-  puts "Error: #{e.message}"
-  puts "Backtrace: #{e.backtrace.join("\n")}"
-end
-```
-
-## Use Cases
-
-### User-Provided Scripts
-
-```ruby
-class ScriptRunner
-  def self.run_user_script(script, context = {})
-    sandbox = MQuickJS::Sandbox.new(
-      memory_limit: 100_000,
-      timeout_ms: 5000
-    )
-
-    # Inject context as global variables
-    context_code = context.map { |k, v| "var #{k} = #{v.to_json};" }.join("\n")
-
-    result = sandbox.eval(context_code + "\n" + script)
-    result.value
-  rescue MQuickJS::Error => e
-    { error: e.message }
-  end
-end
-
-# Usage
-script = <<~JS
-  var total = 0;
-  items.forEach(function(item) {
-    total += item.price * item.quantity;
-  });
-  total;
-JS
-
-result = ScriptRunner.run_user_script(script, {
-  items: [
-    { price: 10, quantity: 2 },
-    { price: 5, quantity: 3 }
-  ]
-})
-# => 35
-```
-
-### Webhook Transformations
-
-```ruby
-class WebhookProcessor
-  def process(payload, transformation_script)
-    sandbox = MQuickJS::Sandbox.new
-
-    code = <<~JS
-      var payload = #{payload.to_json};
-      #{transformation_script}
-    JS
-
-    result = sandbox.eval(code)
-    result.value
-  end
-end
-
-# Usage
-processor = WebhookProcessor.new
-transformed = processor.process(
-  { user: "alice", action: "login" },
-  <<~JS
-    ({
-      username: payload.user.toUpperCase(),
-      event_type: payload.action,
-      timestamp: Date.now()
-    })
-  JS
-)
-# => { "username" => "ALICE", "event_type" => "login", "timestamp" => ... }
-```
-
-### Template Rendering
-
-```ruby
-class JavaScriptTemplate
-  def render(template, data)
-    sandbox = MQuickJS::Sandbox.new
-
-    code = <<~JS
-      var data = #{data.to_json};
-      #{template}
-    JS
-
-    result = sandbox.eval(code)
-    result.value
-  end
-end
-
-# Usage
-template = <<~JS
-  "Hello " + data.name + "! You have " + data.unread + " unread messages."
-JS
-
-output = JavaScriptTemplate.new.render(template, { name: "Alice", unread: 5 })
-# => "Hello Alice! You have 5 unread messages."
-```
-
-### Plugin Systems
-
-```ruby
-class PluginEngine
-  def initialize
-    @sandbox = MQuickJS::Sandbox.new(memory_limit: 200_000)
-  end
-
-  def load_plugin(plugin_code)
-    @sandbox.eval(plugin_code)
-  end
-
-  def call_plugin_function(function_name, *args)
-    args_json = args.map(&:to_json).join(", ")
-    result = @sandbox.eval("#{function_name}(#{args_json})")
-    result.value
-  end
-end
-
-# Usage
-engine = PluginEngine.new
-engine.load_plugin(<<~JS)
-  function processOrder(order) {
-    var total = order.items.reduce(function(sum, item) {
-      return sum + (item.price * item.quantity);
-    }, 0);
-
-    var discount = total > 100 ? total * 0.1 : 0;
-
-    return {
-      subtotal: total,
-      discount: discount,
-      total: total - discount
-    };
-  }
-JS
-
-result = engine.call_plugin_function("processOrder", {
-  items: [{ price: 50, quantity: 3 }]
-})
-# => { "subtotal" => 150, "discount" => 15.0, "total" => 135.0 }
-```
-
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/yourusername/mquickjs-ruby.
+Bug reports and pull requests are welcome on GitHub at https://github.com/stefanoverna/mquickjs-ruby.
 
 ### Development Setup
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/mquickjs-ruby.git
+git clone https://github.com/stefanoverna/mquickjs-ruby.git
 cd mquickjs-ruby
 
 # Install dependencies

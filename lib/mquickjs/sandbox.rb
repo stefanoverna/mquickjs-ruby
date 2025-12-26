@@ -15,7 +15,6 @@ module MQuickJS
     #
     # @option http [Array<String>] :whitelist URL patterns to allow (e.g., ['https://api.github.com/**'])
     # @option http [Integer] :max_requests Maximum requests per eval (default: 10)
-    # @option http [Integer] :max_concurrent Maximum concurrent requests (default: 2)
     # @option http [Integer] :request_timeout Request timeout in ms (default: 5000)
     # @option http [Integer] :max_request_size Maximum request body size (default: 1MB)
     # @option http [Integer] :max_response_size Maximum response size (default: 1MB)
