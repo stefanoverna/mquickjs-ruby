@@ -55,6 +55,31 @@ class ErrorDocumentationTest < Minitest::Test
     assert_equal "SyntaxError: function name expected", error.message
   end
 
+  def test_syntax_error_has_stack_attribute
+    error = assert_raises(MQuickJS::SyntaxError) do
+      @sandbox.eval("function test() {")
+    end
+    assert_respond_to error, :stack
+    assert_kind_of String, error.stack
+    assert_match(/at <eval>/, error.stack)
+  end
+
+  def test_syntax_error_stack_shows_line_and_column
+    error = assert_raises(MQuickJS::SyntaxError) do
+      @sandbox.eval("var x = 1;\nvar y = 2;\nfunction broken() {")
+    end
+    # Stack should contain line:column info (line 3)
+    assert_match(/<eval>:3:\d+/, error.stack)
+  end
+
+  def test_syntax_error_stack_shows_column_position
+    error = assert_raises(MQuickJS::SyntaxError) do
+      @sandbox.eval("var x = ")
+    end
+    # Should show line 1 with column position
+    assert_match(/<eval>:1:\d+/, error.stack)
+  end
+
   # ==========================================================================
   # JavaScriptError Tests
   # ==========================================================================
