@@ -825,6 +825,7 @@ Raised when JavaScript code throws an error at runtime. This includes explicit `
 **Attributes:**
 
 - `message` (String): The full error message, including the error type and description
+- `stack` (String): JavaScript stack trace showing the call chain with function names and line numbers
 
 ```ruby
 begin
@@ -837,6 +838,34 @@ begin
 rescue MQuickJS::JavaScriptError => e
   puts e.message
   # => "TypeError: cannot read property 'name' of null"
+
+  puts e.stack
+  # => "    at processUser (<eval>:2:19)\n    at <eval> (<eval>:4:4)\n"
+end
+```
+
+**Stack trace example with nested calls:**
+
+```ruby
+begin
+  sandbox.eval(<<~JS)
+    function innerFunc() {
+      throw new Error("something went wrong");
+    }
+    function outerFunc() {
+      innerFunc();
+    }
+    outerFunc();
+  JS
+rescue MQuickJS::JavaScriptError => e
+  puts "Error: #{e.message}"
+  puts "Stack trace:"
+  e.stack.each_line { |line| puts "  #{line}" }
+  # Error: Error: something went wrong
+  # Stack trace:
+  #       at innerFunc (<eval>:2:18)
+  #       at outerFunc (<eval>:5:6)
+  #       at <eval> (<eval>:7:4)
 end
 ```
 

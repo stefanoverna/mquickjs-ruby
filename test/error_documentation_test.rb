@@ -132,4 +132,45 @@ class ErrorDocumentationTest < Minitest::Test
     error_type = error.message.split(':').first
     assert_equal "ReferenceError", error_type
   end
+
+  # ==========================================================================
+  # Stack Trace Tests
+  # ==========================================================================
+
+  def test_javascript_error_has_stack_attribute
+    error = assert_raises(MQuickJS::JavaScriptError) do
+      @sandbox.eval("throw new Error('test')")
+    end
+    assert_respond_to error, :stack
+    assert_kind_of String, error.stack
+    assert_match(/at <eval>/, error.stack)
+  end
+
+  def test_stack_trace_shows_function_names
+    error = assert_raises(MQuickJS::JavaScriptError) do
+      @sandbox.eval(<<~JS)
+        function innerFunc() {
+          throw new Error("inner error");
+        }
+        function outerFunc() {
+          innerFunc();
+        }
+        outerFunc();
+      JS
+    end
+    assert_match(/at innerFunc/, error.stack)
+    assert_match(/at outerFunc/, error.stack)
+  end
+
+  def test_stack_trace_shows_line_numbers
+    error = assert_raises(MQuickJS::JavaScriptError) do
+      @sandbox.eval(<<~JS)
+        var x = 1;
+        var y = 2;
+        throw new Error("line 3");
+      JS
+    end
+    # Stack should contain line number info
+    assert_match(/<eval>:\d+:\d+/, error.stack)
+  end
 end
