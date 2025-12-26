@@ -7,7 +7,6 @@ require 'net/http'
 module MQuickJS
   class HTTPConfig
     DEFAULT_MAX_REQUESTS = 10
-    DEFAULT_MAX_CONCURRENT = 2
     DEFAULT_REQUEST_TIMEOUT = 5000  # ms
     DEFAULT_MAX_REQUEST_SIZE = 1_048_576  # 1MB
     DEFAULT_MAX_RESPONSE_SIZE = 1_048_576  # 1MB
@@ -26,14 +25,13 @@ module MQuickJS
       '169.254.169.254/32'   # AWS/GCP/Azure metadata
     ].map { |cidr| IPAddr.new(cidr) }.freeze
 
-    attr_reader :whitelist, :max_requests, :max_concurrent, :request_timeout,
+    attr_reader :whitelist, :max_requests, :request_timeout,
                 :max_request_size, :max_response_size, :allowed_methods,
                 :block_private_ips, :allowed_ports
 
     def initialize(options = {})
       @whitelist = compile_patterns(options[:whitelist] || [])
       @max_requests = options[:max_requests] || DEFAULT_MAX_REQUESTS
-      @max_concurrent = options[:max_concurrent] || DEFAULT_MAX_CONCURRENT
       @request_timeout = options[:request_timeout] || DEFAULT_REQUEST_TIMEOUT
       @max_request_size = options[:max_request_size] || DEFAULT_MAX_REQUEST_SIZE
       @max_response_size = options[:max_response_size] || DEFAULT_MAX_RESPONSE_SIZE

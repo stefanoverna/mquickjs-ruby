@@ -8,7 +8,6 @@ module MQuickJS
     def initialize(config)
       @config = config
       @request_count = 0
-      @concurrent_count = 0
       @http_requests = []
     end
 
@@ -20,11 +19,6 @@ module MQuickJS
       # Validate request count
       if @request_count >= @config.max_requests
         raise HTTPLimitError, "Maximum number of requests (#{@config.max_requests}) exceeded"
-      end
-
-      # Validate concurrent requests
-      if @concurrent_count >= @config.max_concurrent
-        raise HTTPLimitError, "Maximum concurrent requests (#{@config.max_concurrent}) exceeded"
       end
 
       # Validate method
@@ -46,7 +40,6 @@ module MQuickJS
 
       # Track request
       @request_count += 1
-      @concurrent_count += 1
       start_time = Time.now
 
       begin
@@ -72,8 +65,6 @@ module MQuickJS
         )
 
         response
-      ensure
-        @concurrent_count -= 1
       end
     end
 

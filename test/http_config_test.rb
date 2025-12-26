@@ -105,7 +105,6 @@ class TestHTTPConfig < Minitest::Test
     config = MQuickJS::HTTPConfig.new
 
     assert_equal 10, config.max_requests
-    assert_equal 2, config.max_concurrent
     assert_equal 5000, config.request_timeout
     assert_equal 1_048_576, config.max_request_size
     assert_equal 1_048_576, config.max_response_size
