@@ -5,7 +5,14 @@ module MQuickJS
   class Error < StandardError; end
 
   # Raised when JavaScript code has a syntax error
-  class SyntaxError < Error; end
+  class SyntaxError < Error
+    attr_reader :stack
+
+    def initialize(message, stack = nil)
+      super(message)
+      @stack = stack
+    end
+  end
 
   # Raised when JavaScript code throws an error
   class JavaScriptError < Error
