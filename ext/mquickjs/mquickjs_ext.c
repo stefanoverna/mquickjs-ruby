@@ -683,11 +683,30 @@ static VALUE sandbox_eval(VALUE self, VALUE code_str) {
 
         // Determine error class
         int class_id = JS_GetClassID(wrapper->ctx, exc);
-        VALUE error_class = (class_id == 13 || (msg && strncmp(msg, "SyntaxError", 11) == 0))
-            ? rb_eMQuickJSSyntaxError
-            : rb_eMQuickJSJavaScriptError;
+        int is_syntax_error = (class_id == 13 || (msg && strncmp(msg, "SyntaxError", 11) == 0));
 
-        rb_raise(error_class, "%s", msg ? msg : "JavaScript error");
+        if (is_syntax_error) {
+            rb_raise(rb_eMQuickJSSyntaxError, "%s", msg ? msg : "JavaScript error");
+        } else {
+            // For JavaScriptError, extract the stack trace
+            VALUE rb_message = rb_str_new_cstr(msg ? msg : "JavaScript error");
+            VALUE rb_stack = Qnil;
+
+            // Try to get the stack property from the error object
+            JSValue stack_val = JS_GetPropertyStr(wrapper->ctx, exc, "stack");
+            if (!JS_IsUndefined(stack_val) && !JS_IsNull(stack_val)) {
+                JSCStringBuf stack_buf;
+                const char *stack_str = JS_ToCString(wrapper->ctx, stack_val, &stack_buf);
+                if (stack_str) {
+                    rb_stack = rb_str_new_cstr(stack_str);
+                }
+            }
+
+            // Create JavaScriptError with message and stack
+            VALUE argv[2] = { rb_message, rb_stack };
+            VALUE exception = rb_class_new_instance(2, argv, rb_eMQuickJSJavaScriptError);
+            rb_exc_raise(exception);
+        }
     }
 
     // Convert result to Ruby

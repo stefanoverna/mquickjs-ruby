@@ -30,6 +30,9 @@ Perfect for running untrusted JavaScript code with guaranteed safety - evaluate 
   - [Console Output Limits](#console-output-limits)
   - [HTTP Security](#http-security)
   - [Sandboxing](#sandboxing)
+  - [Error Handling](#error-handling)
+    - [MQuickJS::SyntaxError](#mquickjssyntaxerror)
+    - [MQuickJS::JavaScriptError](#mquickjsjavascripterror)
 - [API Reference](#api-reference)
 - [Performance](#performance)
 - [Troubleshooting](#troubleshooting)
@@ -804,6 +807,170 @@ rescue MQuickJS::TimeoutError => e
 rescue MQuickJS::HTTPError => e
   # HTTP security violation
   puts "HTTP error: #{e.message}"
+end
+```
+
+#### MQuickJS::SyntaxError
+
+Raised when JavaScript code contains a syntax error. The error message includes:
+
+- **Error type**: Always prefixed with `SyntaxError:`
+- **Description**: What the parser found unexpected (e.g., "unexpected character", "function name expected")
+
+```ruby
+begin
+  sandbox.eval("var x = ")  # Incomplete statement
+rescue MQuickJS::SyntaxError => e
+  puts e.message
+  # => "SyntaxError: unexpected character in expression"
+end
+```
+
+**Common syntax errors:**
+
+```ruby
+# Using unsupported ES6+ features
+sandbox.eval("const x = 10")
+# => SyntaxError: unexpected character in expression
+
+sandbox.eval("let y = 20")
+# => SyntaxError: unexpected character in expression
+
+sandbox.eval("[1,2,3].map(x => x * 2)")
+# => SyntaxError: unexpected character in expression
+
+sandbox.eval("`template ${literal}`")
+# => SyntaxError: unexpected character in expression
+
+# Missing syntax elements
+sandbox.eval("function() {}")
+# => SyntaxError: function name expected
+```
+
+#### MQuickJS::JavaScriptError
+
+Raised when JavaScript code throws an error at runtime. This includes explicit `throw` statements and built-in errors like `TypeError`, `ReferenceError`, etc.
+
+**Attributes:**
+
+- `message` (String): The full error message, including the error type and description
+- `stack` (String): JavaScript stack trace showing the call chain with function names and line numbers
+
+```ruby
+begin
+  sandbox.eval(<<~JS)
+    function processUser(user) {
+      return user.name.toUpperCase();
+    }
+    processUser(null);  // Will throw TypeError
+  JS
+rescue MQuickJS::JavaScriptError => e
+  puts e.message
+  # => "TypeError: cannot read property 'name' of null"
+
+  puts e.stack
+  # => "    at processUser (<eval>:2:19)\n    at <eval> (<eval>:4:4)\n"
+end
+```
+
+**Stack trace example with nested calls:**
+
+```ruby
+begin
+  sandbox.eval(<<~JS)
+    function innerFunc() {
+      throw new Error("something went wrong");
+    }
+    function outerFunc() {
+      innerFunc();
+    }
+    outerFunc();
+  JS
+rescue MQuickJS::JavaScriptError => e
+  puts "Error: #{e.message}"
+  puts "Stack trace:"
+  e.stack.each_line { |line| puts "  #{line}" }
+  # Error: Error: something went wrong
+  # Stack trace:
+  #       at innerFunc (<eval>:2:18)
+  #       at outerFunc (<eval>:5:6)
+  #       at <eval> (<eval>:7:4)
+end
+```
+
+**Common runtime errors:**
+
+```ruby
+# Accessing undefined variable
+sandbox.eval("undefinedVariable")
+# => ReferenceError: variable 'undefinedVariable' is not defined
+
+# Accessing property of null
+sandbox.eval("null.foo")
+# => TypeError: cannot read property 'foo' of null
+
+# Calling non-function
+sandbox.eval("var x = {}; x.foo()")
+# => TypeError: not a function
+
+# Explicit throw
+sandbox.eval("throw new Error('something went wrong')")
+# => Error: something went wrong
+```
+
+**Error types captured as JavaScriptError:**
+
+| JavaScript Error | Description |
+|-----------------|-------------|
+| `Error` | Generic error from `throw new Error()` |
+| `TypeError` | Type mismatch (e.g., calling non-function, property of null) |
+| `ReferenceError` | Accessing undefined variable |
+| `RangeError` | Value out of allowed range |
+| `URIError` | Malformed URI functions |
+| `EvalError` | Error in eval() (rarely thrown) |
+| `InternalError` | Internal engine error |
+
+**Debugging tips:**
+
+```ruby
+begin
+  sandbox.eval(user_code)
+rescue MQuickJS::JavaScriptError => e
+  # Parse the error type from the message
+  error_type = e.message.split(':').first  # "TypeError", "ReferenceError", etc.
+
+  case error_type
+  when "TypeError"
+    puts "Type error - check for null/undefined values or type mismatches"
+  when "ReferenceError"
+    puts "Undefined variable - check variable names and scope"
+  when "RangeError"
+    puts "Value out of range - check array indices or numeric values"
+  else
+    puts "JavaScript error: #{e.message}"
+  end
+end
+```
+
+**Custom error messages from JavaScript:**
+
+```ruby
+begin
+  sandbox.eval(<<~JS)
+    function validateAge(age) {
+      if (typeof age !== 'number') {
+        throw new TypeError('age must be a number, got ' + typeof age);
+      }
+      if (age < 0 || age > 150) {
+        throw new RangeError('age must be between 0 and 150, got ' + age);
+      }
+      return age;
+    }
+    validateAge("twenty");
+  JS
+rescue MQuickJS::JavaScriptError => e
+  puts e.message
+  # => "TypeError: age must be a number, got string"
 end
 ```
 
