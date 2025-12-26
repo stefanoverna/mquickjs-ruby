@@ -21,6 +21,8 @@ Perfect for running untrusted JavaScript code with guaranteed safety - evaluate 
   - [Memory & CPU Limits](#memory--cpu-limits)
   - [Console Output](#console-output)
   - [HTTP Requests](#http-requests-experimental)
+    - [HTTP Configuration Options](#http-configuration-options)
+    - [Response Properties](#response-properties)
 - [JavaScript Limitations](#javascript-limitations)
 - [Security Guardrails](#security-guardrails)
   - [Memory Safety](#memory-safety)
@@ -302,6 +304,33 @@ sandbox = MQuickJS::Sandbox.new(
     request_timeout: 5000                       # Request timeout in ms (default: 5000)
   }
 )
+```
+
+#### Response Properties
+
+The `fetch()` function returns a response object similar to the standard [Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Response), but simplified for synchronous use. Unlike the browser's async `fetch()`, this version returns the response directly (no Promises) and provides the body as a string property instead of requiring `.text()` or `.json()` methods.
+
+Available properties:
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `status` | Integer | HTTP status code (e.g., 200, 404, 500) |
+| `statusText` | String | HTTP status message (e.g., "OK", "Not Found") |
+| `ok` | Boolean | `true` if status is 200-299, `false` otherwise |
+| `body` | String | Response body as a string |
+| `headers` | Object | Response headers as key-value pairs |
+
+```javascript
+var response = fetch('https://api.example.com/users');
+
+response.status;      // 200
+response.statusText;  // "OK"
+response.ok;          // true
+response.body;        // '{"users": [...]}'
+response.headers;     // {"content-type": "application/json", ...}
+
+// Parse JSON response
+var data = JSON.parse(response.body);
 ```
 
 ## JavaScript Limitations
