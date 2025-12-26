@@ -308,7 +308,9 @@ sandbox = MQuickJS::Sandbox.new(
 
 #### Response Properties
 
-The `fetch()` function returns a response object with the following properties:
+The `fetch()` function returns a response object similar to the standard [Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Response), but simplified for synchronous use. Unlike the browser's async `fetch()`, this version returns the response directly (no Promises) and provides the body as a string property instead of requiring `.text()` or `.json()` methods.
+
+Available properties:
 
 | Property | Type | Description |
 |----------|------|-------------|
