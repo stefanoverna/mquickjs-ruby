@@ -786,18 +786,14 @@ end
 Raised when JavaScript code contains a syntax error. The error message includes:
 
 - **Error type**: Always prefixed with `SyntaxError:`
-- **Description**: What the parser found unexpected (e.g., "unexpected token", "expected ';'")
-- **Location**: Line and column number where the error occurred
+- **Description**: What the parser found unexpected (e.g., "unexpected character", "function name expected")
 
 ```ruby
 begin
-  sandbox.eval(<<~JS)
-    var x = 10
-    var y = ;  // Invalid syntax on line 2
-  JS
+  sandbox.eval("var x = ")  # Incomplete statement
 rescue MQuickJS::SyntaxError => e
   puts e.message
-  # => "SyntaxError: unexpected token in expression: ';' at line 2"
+  # => "SyntaxError: unexpected character in expression"
 end
 ```
 
@@ -806,20 +802,20 @@ end
 ```ruby
 # Using unsupported ES6+ features
 sandbox.eval("const x = 10")
-# => SyntaxError: unexpected token: 'const'
+# => SyntaxError: unexpected character in expression
+
+sandbox.eval("let y = 20")
+# => SyntaxError: unexpected character in expression
 
 sandbox.eval("[1,2,3].map(x => x * 2)")
-# => SyntaxError: unexpected token: '=>'
+# => SyntaxError: unexpected character in expression
 
 sandbox.eval("`template ${literal}`")
-# => SyntaxError: unexpected character
+# => SyntaxError: unexpected character in expression
 
 # Missing syntax elements
 sandbox.eval("function() {}")
 # => SyntaxError: function name expected
-
-sandbox.eval("var obj = { a: 1, }")
-# => SyntaxError: unexpected token: '}'
 ```
 
 #### MQuickJS::JavaScriptError
@@ -829,7 +825,6 @@ Raised when JavaScript code throws an error at runtime. This includes explicit `
 **Attributes:**
 
 - `message` (String): The full error message, including the error type and description
-- `stack` (String, optional): JavaScript stack trace when available
 
 ```ruby
 begin
@@ -840,12 +835,29 @@ begin
     processUser(null);  // Will throw TypeError
   JS
 rescue MQuickJS::JavaScriptError => e
-  puts "Error: #{e.message}"
-  # => "Error: TypeError: cannot read property 'name' of null"
-
-  # Stack trace shows the call chain
-  puts "Stack: #{e.stack}" if e.stack
+  puts e.message
+  # => "TypeError: cannot read property 'name' of null"
 end
+```
+
+**Common runtime errors:**
+
+```ruby
+# Accessing undefined variable
+sandbox.eval("undefinedVariable")
+# => ReferenceError: variable 'undefinedVariable' is not defined
+
+# Accessing property of null
+sandbox.eval("null.foo")
+# => TypeError: cannot read property 'foo' of null
+
+# Calling non-function
+sandbox.eval("var x = {}; x.foo()")
+# => TypeError: not a function
+
+# Explicit throw
+sandbox.eval("throw new Error('something went wrong')")
+# => Error: something went wrong
 ```
 
 **Error types captured as JavaScriptError:**
