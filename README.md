@@ -812,17 +812,22 @@ end
 
 #### MQuickJS::SyntaxError
 
-Raised when JavaScript code contains a syntax error. The error message includes:
+Raised when JavaScript code contains a syntax error.
 
-- **Error type**: Always prefixed with `SyntaxError:`
-- **Description**: What the parser found unexpected (e.g., "unexpected character", "function name expected")
+**Attributes:**
+
+- `message` (String): The full error message, prefixed with `SyntaxError:` and a description
+- `stack` (String): Location info showing where the syntax error occurred (line and column)
 
 ```ruby
 begin
-  sandbox.eval("var x = ")  # Incomplete statement
+  sandbox.eval("var x = 1;\nvar y = 2;\nfunction broken() {")
 rescue MQuickJS::SyntaxError => e
   puts e.message
-  # => "SyntaxError: unexpected character in expression"
+  # => "SyntaxError: expecting '}'"
+
+  puts e.stack
+  # => "    at <eval>:3:20\n"
 end
 ```
 
