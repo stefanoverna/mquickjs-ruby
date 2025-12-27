@@ -68,5 +68,69 @@ namespace :benchmark do
   end
 end
 
+# Fil-C memory-safe build tasks
+# See https://fil-c.org/ for more information about fil-c
+namespace :filc do
+  desc 'Build MQuickJS C library with fil-c for memory safety'
+  task :build do
+    cd 'ext/mquickjs' do
+      sh 'make -f Makefile.filc'
+    end
+  end
+
+  desc 'Run memory safety tests with fil-c'
+  task :test do
+    cd 'ext/mquickjs' do
+      sh 'make -f Makefile.filc test'
+    end
+  end
+
+  desc 'Build Ruby extension with fil-c (requires FILC_PATH)'
+  task :compile do
+    cd 'ext/mquickjs' do
+      ruby 'extconf_filc.rb'
+      sh 'make'
+    end
+    cp 'ext/mquickjs/mquickjs_native.so', 'lib/mquickjs/' if File.exist?('ext/mquickjs/mquickjs_native.so')
+  end
+
+  desc 'Clean fil-c build artifacts'
+  task :clean do
+    cd 'ext/mquickjs' do
+      sh 'make -f Makefile.filc clean' if File.exist?('Makefile.filc')
+    end
+  end
+
+  desc 'Show fil-c build help'
+  task :help do
+    puts <<~HELP
+      Fil-C Memory-Safe Build for MQuickJS
+      =====================================
+
+      Fil-C is a memory-safe C compiler that catches:
+        - Buffer overflows
+        - Use-after-free
+        - Double free
+        - Out-of-bounds access
+
+      Available tasks:
+        rake filc:build    - Build the C library with fil-c
+        rake filc:test     - Run memory safety tests
+        rake filc:compile  - Build Ruby extension with fil-c
+        rake filc:clean    - Clean fil-c build artifacts
+
+      Prerequisites:
+        1. Install fil-c from https://fil-c.org/
+        2. Set FILC_PATH environment variable (optional if in PATH)
+
+      Example:
+        FILC_PATH=/opt/fil-c/bin rake filc:test
+
+      Note: fil-c builds are slower but provide runtime memory safety.
+      Use for development, testing, and security-critical deployments.
+    HELP
+  end
+end
+
 # Default: clean, compile, test
 task default: [:clean, :compile, :test]

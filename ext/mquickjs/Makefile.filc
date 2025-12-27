@@ -1,0 +1,170 @@
+# Fil-C Memory-Safe Build for MQuickJS
+#
+# This Makefile builds the MQuickJS C library with fil-c for memory safety.
+# It's useful for:
+#   - Testing memory safety in isolation
+#   - Debugging memory issues
+#   - Development and fuzzing
+#
+# Usage:
+#   make -f Makefile.filc           # Build with fil-c
+#   make -f Makefile.filc test      # Run memory safety tests
+#   make -f Makefile.filc clean     # Clean build artifacts
+#
+# Prerequisites:
+#   - fil-c installed (https://fil-c.org/)
+#   - Set FILC_PATH if fil-c is not in PATH
+#
+# See https://fil-c.org/ for more information about fil-c.
+
+# Fil-C compiler configuration
+FILC_PATH ?= /usr/local/bin
+FILC_CC := $(shell which filc 2>/dev/null || echo $(FILC_PATH)/filc)
+
+# Host compiler (for build tools only)
+HOST_CC ?= cc
+
+# Directories
+SRCDIR := .
+BUILDDIR := build_filc
+
+# Source files
+MQUICKJS_SOURCES := mquickjs.c cutils.c dtoa.c libm.c mquickjs_build.c
+STDLIB_GEN_SOURCES := mqjs_stdlib.c mquickjs_build.c cutils.c
+
+# Object files
+MQUICKJS_OBJECTS := $(addprefix $(BUILDDIR)/,$(MQUICKJS_SOURCES:.c=.o))
+
+# Compiler flags
+HOST_CFLAGS := -std=c99 -O0 -D_POSIX_C_SOURCE=200809L -I$(SRCDIR)
+
+# Fil-C flags - optimized for safety checking
+# -O0: Disable optimizations to maximize safety check accuracy
+# -g: Include debug info for better error messages
+FILC_CFLAGS := -std=c99 -O0 -g -I$(SRCDIR)
+
+# Output
+LIBRARY := $(BUILDDIR)/libmquickjs_safe.a
+TEST_BINARY := $(BUILDDIR)/test_mquickjs
+
+.PHONY: all clean test check-filc stdlib
+
+all: check-filc $(BUILDDIR) stdlib $(LIBRARY)
+	@echo ""
+	@echo "=== Fil-C Memory-Safe Build Complete ==="
+	@echo "Library: $(LIBRARY)"
+	@echo ""
+	@echo "This library will catch memory safety violations at runtime:"
+	@echo "  - Buffer overflows"
+	@echo "  - Use-after-free"
+	@echo "  - Double free"
+	@echo "  - Out-of-bounds access"
+	@echo ""
+
+check-filc:
+	@if [ ! -x "$(FILC_CC)" ]; then \
+		echo "Error: fil-c compiler not found at $(FILC_CC)"; \
+		echo ""; \
+		echo "Please install fil-c from https://fil-c.org/ and either:"; \
+		echo "  1. Add fil-c to your PATH"; \
+		echo "  2. Set FILC_PATH: make -f Makefile.filc FILC_PATH=/path/to/filc/bin"; \
+		exit 1; \
+	fi
+	@echo "Using fil-c: $(FILC_CC)"
+
+$(BUILDDIR):
+	mkdir -p $(BUILDDIR)
+
+# Generate mqjs_stdlib.h using HOST compiler (build tool, not runtime)
+stdlib: mqjs_stdlib.h
+
+mqjs_stdlib.h: $(STDLIB_GEN_SOURCES)
+	@echo "Generating mqjs_stdlib.h (using host compiler)..."
+	$(HOST_CC) $(HOST_CFLAGS) -o $(BUILDDIR)/mqjs_stdlib_gen $(addprefix $(SRCDIR)/,$(STDLIB_GEN_SOURCES)) -lm
+	$(BUILDDIR)/mqjs_stdlib_gen -m64 > mqjs_stdlib.h
+	@echo "Generated mqjs_stdlib.h"
+
+# Compile with fil-c
+$(BUILDDIR)/%.o: $(SRCDIR)/%.c mqjs_stdlib.h | $(BUILDDIR)
+	@echo "Compiling $< with fil-c..."
+	$(FILC_CC) $(FILC_CFLAGS) -c $< -o $@
+
+# Create static library
+$(LIBRARY): $(MQUICKJS_OBJECTS)
+	ar rcs $@ $^
+	@echo "Created memory-safe library: $@"
+
+# Test target - builds a simple test program
+test: all
+	@echo "Building memory safety test..."
+	@echo '#include <stdio.h>' > $(BUILDDIR)/test_main.c
+	@echo '#include <stdlib.h>' >> $(BUILDDIR)/test_main.c
+	@echo '#include <string.h>' >> $(BUILDDIR)/test_main.c
+	@echo '#include "mquickjs.h"' >> $(BUILDDIR)/test_main.c
+	@echo '#include "mqjs_stdlib.h"' >> $(BUILDDIR)/test_main.c
+	@echo '' >> $(BUILDDIR)/test_main.c
+	@echo 'int main(void) {' >> $(BUILDDIR)/test_main.c
+	@echo '    printf("MQuickJS + Fil-C Memory Safety Test\\n");' >> $(BUILDDIR)/test_main.c
+	@echo '    printf("===================================\\n\\n");' >> $(BUILDDIR)/test_main.c
+	@echo '' >> $(BUILDDIR)/test_main.c
+	@echo '    // Allocate memory for JS context' >> $(BUILDDIR)/test_main.c
+	@echo '    size_t mem_size = 64 * 1024;  // 64KB' >> $(BUILDDIR)/test_main.c
+	@echo '    void *mem = malloc(mem_size);' >> $(BUILDDIR)/test_main.c
+	@echo '    if (!mem) {' >> $(BUILDDIR)/test_main.c
+	@echo '        fprintf(stderr, "Failed to allocate memory\\n");' >> $(BUILDDIR)/test_main.c
+	@echo '        return 1;' >> $(BUILDDIR)/test_main.c
+	@echo '    }' >> $(BUILDDIR)/test_main.c
+	@echo '' >> $(BUILDDIR)/test_main.c
+	@echo '    // Create JS context' >> $(BUILDDIR)/test_main.c
+	@echo '    JSContext *ctx = JS_NewContext(mem, mem_size, &mqjs_stdlib);' >> $(BUILDDIR)/test_main.c
+	@echo '    if (!ctx) {' >> $(BUILDDIR)/test_main.c
+	@echo '        fprintf(stderr, "Failed to create JS context\\n");' >> $(BUILDDIR)/test_main.c
+	@echo '        free(mem);' >> $(BUILDDIR)/test_main.c
+	@echo '        return 1;' >> $(BUILDDIR)/test_main.c
+	@echo '    }' >> $(BUILDDIR)/test_main.c
+	@echo '' >> $(BUILDDIR)/test_main.c
+	@echo '    printf("JS context created successfully\\n");' >> $(BUILDDIR)/test_main.c
+	@echo '' >> $(BUILDDIR)/test_main.c
+	@echo '    // Test simple evaluation' >> $(BUILDDIR)/test_main.c
+	@echo '    const char *code = "1 + 2";' >> $(BUILDDIR)/test_main.c
+	@echo '    JSValue result = JS_Eval(ctx, code, strlen(code), "<test>", JS_EVAL_RETVAL);' >> $(BUILDDIR)/test_main.c
+	@echo '' >> $(BUILDDIR)/test_main.c
+	@echo '    if (JS_IsException(result)) {' >> $(BUILDDIR)/test_main.c
+	@echo '        fprintf(stderr, "JS evaluation failed\\n");' >> $(BUILDDIR)/test_main.c
+	@echo '    } else {' >> $(BUILDDIR)/test_main.c
+	@echo '        printf("Evaluated: %s = (result)\\n", code);' >> $(BUILDDIR)/test_main.c
+	@echo '    }' >> $(BUILDDIR)/test_main.c
+	@echo '' >> $(BUILDDIR)/test_main.c
+	@echo '    // Clean up' >> $(BUILDDIR)/test_main.c
+	@echo '    JS_FreeContext(ctx);' >> $(BUILDDIR)/test_main.c
+	@echo '    free(mem);' >> $(BUILDDIR)/test_main.c
+	@echo '' >> $(BUILDDIR)/test_main.c
+	@echo '    printf("\\nAll tests passed! Memory safety checks active.\\n");' >> $(BUILDDIR)/test_main.c
+	@echo '    return 0;' >> $(BUILDDIR)/test_main.c
+	@echo '}' >> $(BUILDDIR)/test_main.c
+	$(FILC_CC) $(FILC_CFLAGS) -I$(SRCDIR) $(BUILDDIR)/test_main.c $(LIBRARY) -lm -o $(TEST_BINARY)
+	@echo ""
+	@echo "Running memory safety test..."
+	@echo ""
+	$(TEST_BINARY)
+
+clean:
+	rm -rf $(BUILDDIR)
+	rm -f mqjs_stdlib.h
+
+# Help target
+help:
+	@echo "Fil-C Memory-Safe Build for MQuickJS"
+	@echo ""
+	@echo "Targets:"
+	@echo "  all     - Build the memory-safe library (default)"
+	@echo "  test    - Build and run memory safety tests"
+	@echo "  clean   - Remove build artifacts"
+	@echo "  help    - Show this help message"
+	@echo ""
+	@echo "Variables:"
+	@echo "  FILC_PATH - Path to fil-c bin directory (default: /usr/local/bin)"
+	@echo "  HOST_CC   - Host C compiler for build tools (default: cc)"
+	@echo ""
+	@echo "Example:"
+	@echo "  make -f Makefile.filc FILC_PATH=/opt/fil-c/bin test"

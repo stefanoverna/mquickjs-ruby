@@ -35,6 +35,7 @@ Perfect for running untrusted JavaScript code with guaranteed safety - evaluate 
     - [MQuickJS::JavaScriptError](#mquickjsjavascripterror)
 - [API Reference](#api-reference)
 - [Performance](#performance)
+- [Memory-Safe Builds with Fil-C](#memory-safe-builds-with-fil-c)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -1205,6 +1206,81 @@ Comparison: Reuse vs Create New
    # Complex operations: allocate more
    MQuickJS::Sandbox.new(memory_limit: 500_000)  # 500KB
    ```
+
+## Memory-Safe Builds with Fil-C
+
+For maximum security, you can build MQuickJS with [fil-c](https://fil-c.org/), a memory-safe C compiler that catches memory safety violations at runtime.
+
+### What Fil-C Catches
+
+Fil-C transforms memory bugs from exploitable vulnerabilities into safe crashes:
+
+| Vulnerability Class | Without Fil-C | With Fil-C |
+|--------------------|--------------| -----------|
+| Buffer overflow | Exploitable | Panic (safe crash) |
+| Use-after-free | Exploitable | Panic (safe crash) |
+| Double free | Exploitable | Panic (safe crash) |
+| Out-of-bounds access | Exploitable | Panic (safe crash) |
+
+### Prerequisites
+
+1. Install fil-c from https://fil-c.org/
+2. Ensure `filc` is in your PATH or set `FILC_PATH`
+
+### Building with Fil-C
+
+```bash
+# Option 1: Build just the C library (for testing)
+rake filc:build
+
+# Option 2: Run memory safety tests
+rake filc:test
+
+# Option 3: Build the full Ruby extension with fil-c
+FILC_PATH=/path/to/filc/bin rake filc:compile
+
+# Show help
+rake filc:help
+```
+
+### Manual Build
+
+You can also build directly with the provided Makefile:
+
+```bash
+cd ext/mquickjs
+
+# Build the memory-safe C library
+make -f Makefile.filc
+
+# Run memory safety tests
+make -f Makefile.filc test
+
+# Clean build artifacts
+make -f Makefile.filc clean
+```
+
+### When to Use Fil-C Builds
+
+| Use Case | Recommendation |
+|----------|----------------|
+| Development | Use fil-c to catch memory bugs early |
+| Testing | Run test suite with fil-c build |
+| Security-critical production | Consider fil-c for maximum safety |
+| High-performance production | Use standard build (fil-c has ~2-10x overhead) |
+| Fuzzing | Use fil-c to detect memory bugs |
+
+### Trade-offs
+
+**Benefits:**
+- Catches all memory safety violations at runtime
+- No code changes required
+- Complete protection with zero escape hatches
+
+**Costs:**
+- ~2-10x runtime overhead
+- Requires fil-c toolchain
+- May catch benign undefined behavior
 
 ## Contributing
 
