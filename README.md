@@ -1269,27 +1269,48 @@ make -f Makefile.filc FILC_HOME=/path/to/filc-0.677-linux-x86_64 test
 make -f Makefile.filc clean
 ```
 
-### When to Use Fil-C Builds
+### Current Status: Requires Upstream Changes
 
-| Use Case | Recommendation |
-|----------|----------------|
-| Development | Use fil-c to catch memory bugs early |
-| Testing | Run test suite with fil-c build |
-| Security-critical production | Consider fil-c for maximum safety |
-| High-performance production | Use standard build (fil-c has ~2-10x overhead) |
-| Fuzzing | Use fil-c to detect memory bugs |
+**⚠️ Note:** Fil-C compilation currently works, but the test fails during stdlib initialization due to a fundamental incompatibility between MicroQuickJS's architecture and fil-c's capability-based memory safety.
+
+**The Issue:**
+
+MicroQuickJS uses a pre-compiled stdlib table containing embedded pointers (ROM pointers). Fil-c's capability system doesn't recognize these as valid because:
+
+1. Fil-c tracks pointer *provenance*, not just addresses
+2. Pointers in static/ROM data don't have valid capabilities
+3. Copying ROM data to RAM doesn't transfer capabilities
+
+**What Works:**
+- Compilation with fil-c succeeds
+- The C library builds correctly
+- Fil-c successfully detects the ROM pointer issue
+
+**What's Needed for Full Support:**
+
+Upstream changes to MicroQuickJS would be required:
+- Modify stdlib generation to not embed raw pointers
+- Or: Initialize stdlib at runtime using dynamic allocation
+- Or: Use offset-based references instead of pointers
+
+**Current Use:**
+
+The fil-c build infrastructure is still valuable for:
+- Detecting memory safety issues in the engine
+- Testing future upstream fixes
+- Understanding the memory access patterns
 
 ### Trade-offs
 
 **Benefits:**
-- Catches all memory safety violations at runtime
-- No code changes required
+- Catches memory safety violations at runtime
 - Complete protection with zero escape hatches
+- Detects issues that other tools miss
 
 **Costs:**
 - ~2-10x runtime overhead
 - Requires fil-c toolchain
-- May catch benign undefined behavior
+- Requires upstream MicroQuickJS changes for full functionality
 
 ## Contributing
 

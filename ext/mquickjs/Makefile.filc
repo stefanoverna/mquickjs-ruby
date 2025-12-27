@@ -43,7 +43,8 @@ HOST_CFLAGS := -std=c99 -O0 -D_POSIX_C_SOURCE=200809L -I$(SRCDIR)
 # Fil-C flags - optimized for safety checking
 # -O0: Disable optimizations to maximize safety check accuracy
 # -g: Include debug info for better error messages
-FILC_CFLAGS := -std=c99 -O0 -g -I$(SRCDIR)
+# -DFILC_BUILD: Enable fil-c compatibility mode (copies stdlib to RAM)
+FILC_CFLAGS := -std=c99 -O0 -g -DFILC_BUILD -I$(SRCDIR)
 
 # Output
 LIBRARY := $(BUILDDIR)/libmquickjs_safe.a
