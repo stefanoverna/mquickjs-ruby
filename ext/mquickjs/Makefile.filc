@@ -13,13 +13,15 @@
 #
 # Prerequisites:
 #   - fil-c installed (https://fil-c.org/)
-#   - Set FILC_PATH if fil-c is not in PATH
+#   - Set FILC_HOME to the extracted fil-c directory
 #
 # See https://fil-c.org/ for more information about fil-c.
 
 # Fil-C compiler configuration
-FILC_PATH ?= /usr/local/bin
-FILC_CC := $(shell which filc 2>/dev/null || echo $(FILC_PATH)/filc)
+# FILC_HOME should point to the extracted fil-c directory (e.g., /path/to/filc-0.677-linux-x86_64)
+# The compiler is at $(FILC_HOME)/build/bin/clang
+FILC_HOME ?=
+FILC_CC := $(if $(FILC_HOME),$(FILC_HOME)/build/bin/clang,$(shell which filc-clang 2>/dev/null || echo ""))
 
 # Host compiler (for build tools only)
 HOST_CC ?= cc
@@ -62,12 +64,16 @@ all: check-filc $(BUILDDIR) stdlib $(LIBRARY)
 	@echo ""
 
 check-filc:
-	@if [ ! -x "$(FILC_CC)" ]; then \
-		echo "Error: fil-c compiler not found at $(FILC_CC)"; \
+	@if [ -z "$(FILC_CC)" ] || [ ! -x "$(FILC_CC)" ]; then \
+		echo "Error: fil-c compiler not found"; \
 		echo ""; \
-		echo "Please install fil-c from https://fil-c.org/ and either:"; \
-		echo "  1. Add fil-c to your PATH"; \
-		echo "  2. Set FILC_PATH: make -f Makefile.filc FILC_PATH=/path/to/filc/bin"; \
+		echo "Please install fil-c from https://fil-c.org/ and set FILC_HOME:"; \
+		echo ""; \
+		echo "  1. Download: curl -LO https://github.com/pizlonator/fil-c/releases/download/v0.677/filc-0.677-linux-x86_64.tar.xz"; \
+		echo "  2. Extract:  tar xf filc-0.677-linux-x86_64.tar.xz"; \
+		echo "  3. Setup:    cd filc-0.677-linux-x86_64 && ./setup.sh"; \
+		echo "  4. Build:    make -f Makefile.filc FILC_HOME=/path/to/filc-0.677-linux-x86_64"; \
+		echo ""; \
 		exit 1; \
 	fi
 	@echo "Using fil-c: $(FILC_CC)"
@@ -94,55 +100,10 @@ $(LIBRARY): $(MQUICKJS_OBJECTS)
 	ar rcs $@ $^
 	@echo "Created memory-safe library: $@"
 
-# Test target - builds a simple test program
+# Test target - builds and runs the memory safety test
 test: all
 	@echo "Building memory safety test..."
-	@echo '#include <stdio.h>' > $(BUILDDIR)/test_main.c
-	@echo '#include <stdlib.h>' >> $(BUILDDIR)/test_main.c
-	@echo '#include <string.h>' >> $(BUILDDIR)/test_main.c
-	@echo '#include "mquickjs.h"' >> $(BUILDDIR)/test_main.c
-	@echo '#include "mqjs_stdlib.h"' >> $(BUILDDIR)/test_main.c
-	@echo '' >> $(BUILDDIR)/test_main.c
-	@echo 'int main(void) {' >> $(BUILDDIR)/test_main.c
-	@echo '    printf("MQuickJS + Fil-C Memory Safety Test\\n");' >> $(BUILDDIR)/test_main.c
-	@echo '    printf("===================================\\n\\n");' >> $(BUILDDIR)/test_main.c
-	@echo '' >> $(BUILDDIR)/test_main.c
-	@echo '    // Allocate memory for JS context' >> $(BUILDDIR)/test_main.c
-	@echo '    size_t mem_size = 64 * 1024;  // 64KB' >> $(BUILDDIR)/test_main.c
-	@echo '    void *mem = malloc(mem_size);' >> $(BUILDDIR)/test_main.c
-	@echo '    if (!mem) {' >> $(BUILDDIR)/test_main.c
-	@echo '        fprintf(stderr, "Failed to allocate memory\\n");' >> $(BUILDDIR)/test_main.c
-	@echo '        return 1;' >> $(BUILDDIR)/test_main.c
-	@echo '    }' >> $(BUILDDIR)/test_main.c
-	@echo '' >> $(BUILDDIR)/test_main.c
-	@echo '    // Create JS context' >> $(BUILDDIR)/test_main.c
-	@echo '    JSContext *ctx = JS_NewContext(mem, mem_size, &mqjs_stdlib);' >> $(BUILDDIR)/test_main.c
-	@echo '    if (!ctx) {' >> $(BUILDDIR)/test_main.c
-	@echo '        fprintf(stderr, "Failed to create JS context\\n");' >> $(BUILDDIR)/test_main.c
-	@echo '        free(mem);' >> $(BUILDDIR)/test_main.c
-	@echo '        return 1;' >> $(BUILDDIR)/test_main.c
-	@echo '    }' >> $(BUILDDIR)/test_main.c
-	@echo '' >> $(BUILDDIR)/test_main.c
-	@echo '    printf("JS context created successfully\\n");' >> $(BUILDDIR)/test_main.c
-	@echo '' >> $(BUILDDIR)/test_main.c
-	@echo '    // Test simple evaluation' >> $(BUILDDIR)/test_main.c
-	@echo '    const char *code = "1 + 2";' >> $(BUILDDIR)/test_main.c
-	@echo '    JSValue result = JS_Eval(ctx, code, strlen(code), "<test>", JS_EVAL_RETVAL);' >> $(BUILDDIR)/test_main.c
-	@echo '' >> $(BUILDDIR)/test_main.c
-	@echo '    if (JS_IsException(result)) {' >> $(BUILDDIR)/test_main.c
-	@echo '        fprintf(stderr, "JS evaluation failed\\n");' >> $(BUILDDIR)/test_main.c
-	@echo '    } else {' >> $(BUILDDIR)/test_main.c
-	@echo '        printf("Evaluated: %s = (result)\\n", code);' >> $(BUILDDIR)/test_main.c
-	@echo '    }' >> $(BUILDDIR)/test_main.c
-	@echo '' >> $(BUILDDIR)/test_main.c
-	@echo '    // Clean up' >> $(BUILDDIR)/test_main.c
-	@echo '    JS_FreeContext(ctx);' >> $(BUILDDIR)/test_main.c
-	@echo '    free(mem);' >> $(BUILDDIR)/test_main.c
-	@echo '' >> $(BUILDDIR)/test_main.c
-	@echo '    printf("\\nAll tests passed! Memory safety checks active.\\n");' >> $(BUILDDIR)/test_main.c
-	@echo '    return 0;' >> $(BUILDDIR)/test_main.c
-	@echo '}' >> $(BUILDDIR)/test_main.c
-	$(FILC_CC) $(FILC_CFLAGS) -I$(SRCDIR) $(BUILDDIR)/test_main.c $(LIBRARY) -lm -o $(TEST_BINARY)
+	$(FILC_CC) $(FILC_CFLAGS) -I$(SRCDIR) $(SRCDIR)/filc_test.c $(LIBRARY) -lm -o $(TEST_BINARY)
 	@echo ""
 	@echo "Running memory safety test..."
 	@echo ""
@@ -163,8 +124,8 @@ help:
 	@echo "  help    - Show this help message"
 	@echo ""
 	@echo "Variables:"
-	@echo "  FILC_PATH - Path to fil-c bin directory (default: /usr/local/bin)"
+	@echo "  FILC_HOME - Path to fil-c directory (e.g., /path/to/filc-0.677-linux-x86_64)"
 	@echo "  HOST_CC   - Host C compiler for build tools (default: cc)"
 	@echo ""
 	@echo "Example:"
-	@echo "  make -f Makefile.filc FILC_PATH=/opt/fil-c/bin test"
+	@echo "  make -f Makefile.filc FILC_HOME=/tmp/filc-0.677-linux-x86_64 test"

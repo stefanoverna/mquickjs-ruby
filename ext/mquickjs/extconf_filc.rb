@@ -4,42 +4,46 @@
 # This builds the extension with fil-c for memory safety
 #
 # Usage:
-#   FILC_PATH=/path/to/filc ruby extconf_filc.rb
+#   FILC_HOME=/path/to/filc-0.677-linux-x86_64 ruby extconf_filc.rb
 #   make
 #
 # Prerequisites:
 #   - fil-c installed (https://fil-c.org/)
-#   - FILC_PATH environment variable set to fil-c bin directory
+#   - FILC_HOME environment variable set to the extracted fil-c directory
 
 require 'mkmf'
 require 'fileutils'
 
 # Configuration
 MQUICKJS_DIR = File.expand_path('.', __dir__)
-FILC_PATH = ENV['FILC_PATH'] || '/usr/local/bin'
-FILC_CC = File.join(FILC_PATH, 'filc')
+FILC_HOME = ENV['FILC_HOME']
 
-# Verify fil-c is available
-unless File.executable?(FILC_CC)
-  # Try finding filc in PATH
-  filc_in_path = `which filc 2>/dev/null`.strip
-  if filc_in_path.empty?
-    abort <<~ERROR
-      fil-c compiler not found!
-
-      Please install fil-c from https://fil-c.org/ and either:
-        1. Set FILC_PATH environment variable to the fil-c bin directory
-        2. Add fil-c to your PATH
-
-      Example:
-        FILC_PATH=/opt/fil-c/bin ruby extconf_filc.rb
-    ERROR
-  else
-    FILC_CC.replace(filc_in_path)
-  end
+# Determine fil-c compiler path
+filc_cc = if FILC_HOME && !FILC_HOME.empty?
+  File.join(FILC_HOME, 'build', 'bin', 'clang')
+else
+  # Try finding filc-clang in PATH
+  `which filc-clang 2>/dev/null`.strip
 end
 
-puts "Using fil-c compiler: #{FILC_CC}"
+# Verify fil-c is available
+if filc_cc.empty? || !File.executable?(filc_cc)
+  abort <<~ERROR
+    fil-c compiler not found!
+
+    Please install fil-c from https://fil-c.org/:
+
+      1. Download: curl -LO https://github.com/pizlonator/fil-c/releases/download/v0.677/filc-0.677-linux-x86_64.tar.xz
+      2. Extract:  tar xf filc-0.677-linux-x86_64.tar.xz
+      3. Setup:    cd filc-0.677-linux-x86_64 && ./setup.sh
+      4. Build:    FILC_HOME=/path/to/filc-0.677-linux-x86_64 ruby extconf_filc.rb
+
+    Example:
+      FILC_HOME=/tmp/filc-0.677-linux-x86_64 ruby extconf_filc.rb
+  ERROR
+end
+
+puts "Using fil-c compiler: #{filc_cc}"
 
 # Step 1: Generate mqjs_stdlib.h using the HOST compiler (not fil-c)
 # The stdlib generator is a build tool, not the runtime, so it doesn't
@@ -77,8 +81,8 @@ end
 
 # Step 2: Configure the build to use fil-c
 # Override the C compiler
-RbConfig::MAKEFILE_CONFIG['CC'] = FILC_CC
-RbConfig::CONFIG['CC'] = FILC_CC
+RbConfig::MAKEFILE_CONFIG['CC'] = filc_cc
+RbConfig::CONFIG['CC'] = filc_cc
 
 # Add mquickjs include directory
 $INCFLAGS << " -I#{MQUICKJS_DIR}"
@@ -108,7 +112,7 @@ if File.exist?(makefile_path)
   content = File.read(makefile_path)
 
   # Ensure CC is set to fil-c
-  content.gsub!(/^CC\s*=.*$/, "CC = #{FILC_CC}")
+  content.gsub!(/^CC\s*=.*$/, "CC = #{filc_cc}")
 
   # Add a comment indicating this is a fil-c build
   header = <<~HEADER

@@ -1224,20 +1224,29 @@ Fil-C transforms memory bugs from exploitable vulnerabilities into safe crashes:
 
 ### Prerequisites
 
-1. Install fil-c from https://fil-c.org/
-2. Ensure `filc` is in your PATH or set `FILC_PATH`
+1. Download fil-c from https://github.com/pizlonator/fil-c/releases
+2. Extract and run `./setup.sh` in the extracted directory
+3. Set `FILC_HOME` environment variable to the extracted directory
+
+```bash
+# Quick install
+curl -LO https://github.com/pizlonator/fil-c/releases/download/v0.677/filc-0.677-linux-x86_64.tar.xz
+tar xf filc-0.677-linux-x86_64.tar.xz
+cd filc-0.677-linux-x86_64 && ./setup.sh
+export FILC_HOME=$(pwd)
+```
 
 ### Building with Fil-C
 
 ```bash
 # Option 1: Build just the C library (for testing)
-rake filc:build
+FILC_HOME=/path/to/filc-0.677-linux-x86_64 rake filc:build
 
 # Option 2: Run memory safety tests
-rake filc:test
+FILC_HOME=/path/to/filc-0.677-linux-x86_64 rake filc:test
 
 # Option 3: Build the full Ruby extension with fil-c
-FILC_PATH=/path/to/filc/bin rake filc:compile
+FILC_HOME=/path/to/filc-0.677-linux-x86_64 rake filc:compile
 
 # Show help
 rake filc:help
@@ -1251,10 +1260,10 @@ You can also build directly with the provided Makefile:
 cd ext/mquickjs
 
 # Build the memory-safe C library
-make -f Makefile.filc
+make -f Makefile.filc FILC_HOME=/path/to/filc-0.677-linux-x86_64
 
 # Run memory safety tests
-make -f Makefile.filc test
+make -f Makefile.filc FILC_HOME=/path/to/filc-0.677-linux-x86_64 test
 
 # Clean build artifacts
 make -f Makefile.filc clean

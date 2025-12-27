@@ -73,20 +73,23 @@ end
 namespace :filc do
   desc 'Build MQuickJS C library with fil-c for memory safety'
   task :build do
+    filc_home = ENV['FILC_HOME'] || abort('FILC_HOME environment variable required')
     cd 'ext/mquickjs' do
-      sh 'make -f Makefile.filc'
+      sh "make -f Makefile.filc FILC_HOME=#{filc_home}"
     end
   end
 
   desc 'Run memory safety tests with fil-c'
   task :test do
+    filc_home = ENV['FILC_HOME'] || abort('FILC_HOME environment variable required')
     cd 'ext/mquickjs' do
-      sh 'make -f Makefile.filc test'
+      sh "make -f Makefile.filc FILC_HOME=#{filc_home} test"
     end
   end
 
-  desc 'Build Ruby extension with fil-c (requires FILC_PATH)'
+  desc 'Build Ruby extension with fil-c (requires FILC_HOME)'
   task :compile do
+    ENV['FILC_HOME'] || abort('FILC_HOME environment variable required')
     cd 'ext/mquickjs' do
       ruby 'extconf_filc.rb'
       sh 'make'
@@ -120,11 +123,12 @@ namespace :filc do
         rake filc:clean    - Clean fil-c build artifacts
 
       Prerequisites:
-        1. Install fil-c from https://fil-c.org/
-        2. Set FILC_PATH environment variable (optional if in PATH)
+        1. Download fil-c from https://github.com/pizlonator/fil-c/releases
+        2. Extract and run ./setup.sh
+        3. Set FILC_HOME to the extracted directory
 
       Example:
-        FILC_PATH=/opt/fil-c/bin rake filc:test
+        FILC_HOME=/path/to/filc-0.677-linux-x86_64 rake filc:test
 
       Note: fil-c builds are slower but provide runtime memory safety.
       Use for development, testing, and security-critical deployments.
