@@ -1,0 +1,17 @@
+{
+  "name": "sandbox-runtime-bun-poc",
+  "version": "0.1.0",
+  "description": "POC exploring sandbox-runtime + Bun as alternative to mquickjs-ruby",
+  "type": "module",
+  "scripts": {
+    "test": "bun test",
+    "example": "bun run src/example.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sandbox-runtime": "^0.1.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.0.0"
+  }
+}
