@@ -1,4 +1,4 @@
-****# MQuickJS - JavaScript Sandbox for Ruby
+# MQuickJS - JavaScript Sandbox for Ruby
 
 [![Gem Version](https://badge.fury.io/rb/mquickjs.svg)](https://badge.fury.io/rb/mquickjs)
 [![Build Status](https://github.com/stefanoverna/mquickjs-ruby/workflows/CI/badge.svg)](https://github.com/stefanoverna/mquickjs-ruby/actions)
