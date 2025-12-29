@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require 'net/http'
-require 'json'
+require "net/http"
+require "json"
 
 module MQuickJS
   class HTTPExecutor
@@ -25,7 +25,7 @@ module MQuickJS
       method = @config.validate_method(method)
 
       # Validate URL
-      @config.validate_url(url)
+      @config.validate_url!(url)
 
       # Parse options
       headers = options[:headers] || {}
@@ -74,29 +74,27 @@ module MQuickJS
       uri = URI.parse(url)
 
       # Re-validate IP after DNS resolution (prevent DNS rebinding)
-      if @config.blocked_ip?(uri.host)
-        raise HTTPBlockedError, "URL resolves to blocked IP address: #{url}"
-      end
+      raise HTTPBlockedError, "URL resolves to blocked IP address: #{url}" if @config.blocked_ip?(uri.host)
 
       # Create HTTP object
       http = Net::HTTP.new(uri.host, uri.port)
-      http.use_ssl = (uri.scheme == 'https')
+      http.use_ssl = (uri.scheme == "https")
       http.open_timeout = timeout_ms / 1000.0
       http.read_timeout = timeout_ms / 1000.0
 
       # Create request
       request = case method
-                when 'GET'
+                when "GET"
                   Net::HTTP::Get.new(uri.request_uri)
-                when 'POST'
+                when "POST"
                   Net::HTTP::Post.new(uri.request_uri)
-                when 'PUT'
+                when "PUT"
                   Net::HTTP::Put.new(uri.request_uri)
-                when 'DELETE'
+                when "DELETE"
                   Net::HTTP::Delete.new(uri.request_uri)
-                when 'PATCH'
+                when "PATCH"
                   Net::HTTP::Patch.new(uri.request_uri)
-                when 'HEAD'
+                when "HEAD"
                   Net::HTTP::Head.new(uri.request_uri)
                 else
                   raise HTTPBlockedError, "Unsupported HTTP method: #{method}"
@@ -119,7 +117,7 @@ module MQuickJS
         status: response.code.to_i,
         statusText: response.message,
         headers: response_headers,
-        body: response.body || ''
+        body: response.body || ""
       }
     rescue Net::OpenTimeout, Net::ReadTimeout => e
       raise HTTPError, "Request timeout: #{e.message}"

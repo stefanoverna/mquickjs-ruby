@@ -1,5 +1,7 @@
-require 'minitest/autorun'
-require_relative '../lib/mquickjs'
+# frozen_string_literal: true
+
+require "minitest/autorun"
+require_relative "../lib/mquickjs"
 
 # Test helper that creates a sandbox with a mock HTTP handler
 class MockHTTPSandbox
@@ -60,8 +62,8 @@ class FetchTest < Minitest::Test
 
     assert_equal '{"message": "success"}', result.value
     assert_equal 1, @mock.requests.length
-    assert_equal 'GET', @mock.requests[0][:method]
-    assert_equal 'https://api.example.com/data', @mock.requests[0][:url]
+    assert_equal "GET", @mock.requests[0][:method]
+    assert_equal "https://api.example.com/data", @mock.requests[0][:url]
   end
 
   def test_post_request
@@ -70,7 +72,7 @@ class FetchTest < Minitest::Test
     JS
 
     assert_equal 200, result.value
-    assert_equal 'POST', @mock.requests[0][:method]
+    assert_equal "POST", @mock.requests[0][:method]
   end
 
   def test_put_request
@@ -79,7 +81,7 @@ class FetchTest < Minitest::Test
     JS
 
     assert_equal 200, result.value
-    assert_equal 'PUT', @mock.requests[0][:method]
+    assert_equal "PUT", @mock.requests[0][:method]
   end
 
   def test_delete_request
@@ -88,7 +90,7 @@ class FetchTest < Minitest::Test
     JS
 
     assert_equal 200, result.value
-    assert_equal 'DELETE', @mock.requests[0][:method]
+    assert_equal "DELETE", @mock.requests[0][:method]
   end
 
   def test_patch_request
@@ -97,7 +99,7 @@ class FetchTest < Minitest::Test
     JS
 
     assert_equal 200, result.value
-    assert_equal 'PATCH', @mock.requests[0][:method]
+    assert_equal "PATCH", @mock.requests[0][:method]
   end
 
   def test_head_request
@@ -106,7 +108,7 @@ class FetchTest < Minitest::Test
     JS
 
     assert_equal 200, result.value
-    assert_equal 'HEAD', @mock.requests[0][:method]
+    assert_equal "HEAD", @mock.requests[0][:method]
   end
 
   def test_options_request
@@ -115,7 +117,7 @@ class FetchTest < Minitest::Test
     JS
 
     assert_equal 200, result.value
-    assert_equal 'OPTIONS', @mock.requests[0][:method]
+    assert_equal "OPTIONS", @mock.requests[0][:method]
   end
 
   # ============================================================================
@@ -131,7 +133,7 @@ class FetchTest < Minitest::Test
     JS
 
     assert_equal 200, result.value
-    assert_equal 'plain text body', @mock.requests[0][:body]
+    assert_equal "plain text body", @mock.requests[0][:body]
   end
 
   def test_request_with_json_body
@@ -163,6 +165,7 @@ class FetchTest < Minitest::Test
     @mock.queue_response(status: 201, statusText: "Created", body: "", headers: {})
 
     result = @sandbox.eval("fetch('https://api.example.com/users').status")
+
     assert_equal 201, result.value
   end
 
@@ -170,6 +173,7 @@ class FetchTest < Minitest::Test
     @mock.queue_response(status: 404, statusText: "Not Found", body: "", headers: {})
 
     result = @sandbox.eval("fetch('https://api.example.com/users').statusText")
+
     assert_equal "Not Found", result.value
   end
 
@@ -177,20 +181,23 @@ class FetchTest < Minitest::Test
     @mock.queue_response(status: 200, statusText: "OK", body: "", headers: {})
 
     result = @sandbox.eval("fetch('https://api.example.com/data').ok")
-    assert_equal true, result.value
+
+    assert result.value
   end
 
   def test_response_ok_false_for_404
     @mock.queue_response(status: 404, statusText: "Not Found", body: "", headers: {})
 
     result = @sandbox.eval("fetch('https://api.example.com/data').ok")
-    assert_equal false, result.value
+
+    refute result.value
   end
 
   def test_response_body
     @mock.queue_response(status: 200, statusText: "OK", body: "Hello World", headers: {})
 
     result = @sandbox.eval("fetch('https://api.example.com/data').body")
+
     assert_equal "Hello World", result.value
   end
 
@@ -214,11 +221,12 @@ class FetchTest < Minitest::Test
     JS
 
     data = JSON.parse(result.value)
-    assert_equal 201, data['status']
-    assert_equal "Created", data['statusText']
-    assert_equal true, data['ok']
-    assert_equal '{"id": 123}', data['body']
-    assert_equal true, data['hasHeaders']
+
+    assert_equal 201, data["status"]
+    assert_equal "Created", data["statusText"]
+    assert data["ok"]
+    assert_equal '{"id": 123}', data["body"]
+    assert data["hasHeaders"]
   end
 
   # ============================================================================
@@ -265,14 +273,16 @@ class FetchTest < Minitest::Test
 
   def test_url_with_query_params
     result = @sandbox.eval("fetch('https://api.example.com/search?q=test&limit=10').status")
+
     assert_equal 200, result.value
-    assert_equal 'https://api.example.com/search?q=test&limit=10', @mock.requests[0][:url]
+    assert_equal "https://api.example.com/search?q=test&limit=10", @mock.requests[0][:url]
   end
 
   def test_url_with_path_segments
     result = @sandbox.eval("fetch('https://api.example.com/v1/users/123/posts').status")
+
     assert_equal 200, result.value
-    assert_equal 'https://api.example.com/v1/users/123/posts', @mock.requests[0][:url]
+    assert_equal "https://api.example.com/v1/users/123/posts", @mock.requests[0][:url]
   end
 
   # ============================================================================
@@ -360,8 +370,8 @@ class FetchTest < Minitest::Test
     JS
 
     assert_equal '{"message": "success"}', result.value
-    assert_includes result.console_output, 'Status:'
-    assert_includes result.console_output, '200'
+    assert_includes result.console_output, "Status:"
+    assert_includes result.console_output, "200"
   end
 
   # ============================================================================
@@ -394,7 +404,7 @@ class FetchHighLevelAPITest < Minitest::Test
   def test_sandbox_with_http_option_enables_fetch
     sandbox = MQuickJS::Sandbox.new(
       http: {
-        whitelist: ['https://example.com/**'],
+        whitelist: ["https://example.com/**"],
         block_private_ips: false
       }
     )
@@ -421,7 +431,7 @@ class FetchHighLevelAPITest < Minitest::Test
   def test_whitelist_blocks_non_whitelisted_urls
     sandbox = MQuickJS::Sandbox.new(
       http: {
-        whitelist: ['https://api.github.com/**'],
+        whitelist: ["https://api.github.com/**"],
         block_private_ips: false
       }
     )
@@ -438,7 +448,7 @@ class FetchHighLevelAPITest < Minitest::Test
     error = assert_raises(MQuickJS::HTTPBlockedError) do
       MQuickJS.eval(
         "fetch('https://blocked.com/data')",
-        http: { whitelist: ['https://allowed.com/**'] }
+        http: { whitelist: ["https://allowed.com/**"] }
       )
     end
 

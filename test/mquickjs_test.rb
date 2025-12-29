@@ -1,18 +1,20 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-require 'mquickjs'
-require 'minitest/autorun'
+require "mquickjs"
+require "minitest/autorun"
 
 class TestMQuickJS < Minitest::Test
   def test_simple_arithmetic
     result = MQuickJS.eval("1 + 2 + 3")
+
     assert_equal 6, result.value
     assert_equal "", result.console_output
   end
 
   def test_string_operations
     result = MQuickJS.eval("'hello'.toUpperCase()")
+
     assert_equal "HELLO", result.value
   end
 
@@ -25,22 +27,25 @@ class TestMQuickJS < Minitest::Test
       sum;
     JS
     result = MQuickJS.eval(code)
+
     assert_equal 4950, result.value
   end
 
   def test_math_functions
     result = MQuickJS.eval("Math.sqrt(16)")
-    assert_equal 4.0, result.value
+
+    assert_in_delta(4.0, result.value)
   end
 
   def test_return_string
     result = MQuickJS.eval("'test string'")
+
     assert_equal "test string", result.value
   end
 
   def test_return_boolean
-    assert_equal true, MQuickJS.eval("true").value
-    assert_equal false, MQuickJS.eval("false").value
+    assert MQuickJS.eval("true").value
+    refute MQuickJS.eval("false").value
   end
 
   def test_return_null
@@ -84,7 +89,7 @@ class TestMQuickJS < Minitest::Test
     # This should fail with small memory limit (stdlib needs ~10KB minimum)
     # Note: mquickjs might handle this differently, so we'll be lenient
     begin
-      result = MQuickJS.eval(code, memory_limit: 15_000)  # Small but valid limit
+      MQuickJS.eval(code, memory_limit: 15_000) # Small but valid limit
       # If it doesn't raise, that's ok - mquickjs might handle it gracefully
     rescue MQuickJS::MemoryLimitError, MQuickJS::JavaScriptError
       # Expected - either out of memory or JS error
@@ -95,13 +100,16 @@ class TestMQuickJS < Minitest::Test
     sandbox = MQuickJS::Sandbox.new
 
     result1 = sandbox.eval("2 + 2")
+
     assert_equal 4, result1.value
 
     result2 = sandbox.eval("3 * 3")
+
     assert_equal 9, result2.value
 
     # Each eval is isolated
     result3 = sandbox.eval("typeof x")
+
     assert_equal "undefined", result3.value
   end
 
@@ -114,6 +122,7 @@ class TestMQuickJS < Minitest::Test
       fibonacci(10);
     JS
     result = MQuickJS.eval(code)
+
     assert_equal 55, result.value
   end
 
@@ -127,18 +136,20 @@ class TestMQuickJS < Minitest::Test
       sum;
     JS
     result = MQuickJS.eval(code)
+
     assert_equal 15, result.value
   end
 
   def test_string_concatenation
     result = MQuickJS.eval("'Hello' + ' ' + 'World'")
+
     assert_equal "Hello World", result.value
   end
 
   def test_comparison_operators
-    assert_equal true, MQuickJS.eval("5 > 3").value
-    assert_equal false, MQuickJS.eval("2 > 10").value
-    assert_equal true, MQuickJS.eval("'abc' === 'abc'").value
+    assert MQuickJS.eval("5 > 3").value
+    refute MQuickJS.eval("2 > 10").value
+    assert MQuickJS.eval("'abc' === 'abc'").value
   end
 
   def test_typeof_operator
@@ -154,36 +165,42 @@ class TestMQuickJS < Minitest::Test
       obj.x + obj.y;
     JS
     result = MQuickJS.eval(code)
+
     assert_equal 30, result.value
   end
 
   def test_custom_memory_limit
     sandbox = MQuickJS::Sandbox.new(memory_limit: 100_000)
     result = sandbox.eval("1 + 1")
+
     assert_equal 2, result.value
   end
 
   def test_custom_timeout
     sandbox = MQuickJS::Sandbox.new(timeout_ms: 1000)
     result = sandbox.eval("2 * 2")
+
     assert_equal 4, result.value
   end
 
   def test_console_log_capture
     result = MQuickJS.eval("console.log('Hello'); console.log('World'); 42")
+
     assert_equal 42, result.value
     assert_equal "Hello\nWorld\n", result.console_output
-    assert_equal false, result.console_truncated?
+    refute_predicate result, :console_truncated?
   end
 
   def test_console_log_multiple_args
     result = MQuickJS.eval("console.log('a', 'b', 'c'); 123")
+
     assert_equal 123, result.value
     assert_equal "a b c\n", result.console_output
   end
 
   def test_console_log_with_numbers
     result = MQuickJS.eval("console.log(1, 2, 3); console.log(true); 'done'")
+
     assert_equal "done", result.value
     assert_equal "1 2 3\ntrue\n", result.console_output
   end
@@ -198,9 +215,10 @@ class TestMQuickJS < Minitest::Test
       'done'
     JS
     result = MQuickJS.eval(code)
+
     assert_equal "done", result.value
-    assert result.console_output.bytesize <= 10_000
-    assert_equal true, result.console_truncated?
+    assert_operator result.console_output.bytesize, :<=, 10_000
+    assert_predicate result, :console_truncated?
   end
 
   def test_custom_console_max_size
@@ -213,16 +231,18 @@ class TestMQuickJS < Minitest::Test
       42
     JS
     result = sandbox.eval(code)
+
     assert_equal 42, result.value
-    assert result.console_output.bytesize <= 100
-    assert_equal true, result.console_truncated?
+    assert_operator result.console_output.bytesize, :<=, 100
+    assert_predicate result, :console_truncated?
   end
 
   def test_no_console_output
     result = MQuickJS.eval("1 + 1")
+
     assert_equal 2, result.value
     assert_equal "", result.console_output
-    assert_equal false, result.console_truncated?
+    refute_predicate result, :console_truncated?
   end
 end
 

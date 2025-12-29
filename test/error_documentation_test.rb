@@ -154,7 +154,8 @@ class ErrorDocumentationTest < Minitest::Test
     error = assert_raises(MQuickJS::JavaScriptError) do
       @sandbox.eval("undefinedVariable")
     end
-    error_type = error.message.split(':').first
+    error_type = error.message.split(":").first
+
     assert_equal "ReferenceError", error_type
   end
 

@@ -1,121 +1,122 @@
 # frozen_string_literal: true
 
-require 'rake/extensiontask'
-require 'rake/testtask'
-require 'rubocop/rake_task'
+require "rake/extensiontask"
+require "rake/testtask"
+require "rubocop/rake_task"
 
 # Build the native extension
-Rake::ExtensionTask.new('mquickjs_native') do |ext|
-  ext.lib_dir = 'lib/mquickjs'
-  ext.ext_dir = 'ext/mquickjs'
+Rake::ExtensionTask.new("mquickjs_native") do |ext|
+  ext.lib_dir = "lib/mquickjs"
+  ext.ext_dir = "ext/mquickjs"
 end
 
 # Test task
 Rake::TestTask.new(:test) do |t|
-  t.libs << 'lib'
-  t.test_files = FileList['test/**/*_test.rb']
+  t.libs << "lib"
+  t.test_files = FileList["test/**/*_test.rb"]
   t.verbose = true
   # Disable automatic plugin loading to avoid conflicts with globally installed gems
-  t.options = '--no-plugins'
+  t.options = "--no-plugins"
 end
 
 # RuboCop task
 RuboCop::RakeTask.new
 
 # Clean task
+desc "Clean build artifacts"
 task :clean do
-  sh 'cd ext/mquickjs && make clean' if File.exist?('ext/mquickjs/Makefile')
-  rm_f 'lib/mquickjs/mquickjs_native.so'
-  rm_f Dir.glob('ext/mquickjs/*.o')
-  rm_f 'ext/mquickjs/Makefile'
+  sh "cd ext/mquickjs && make clean" if File.exist?("ext/mquickjs/Makefile")
+  rm_f "lib/mquickjs/mquickjs_native.so"
+  rm_f Dir.glob("ext/mquickjs/*.o")
+  rm_f "ext/mquickjs/Makefile"
 end
 
 # Benchmark task
-desc 'Run benchmarks'
-task :benchmark => :compile do
-  ruby 'benchmark/runner.rb'
+desc "Run benchmarks"
+task benchmark: :compile do
+  ruby "benchmark/runner.rb"
 end
 
 # Individual benchmark tasks
 namespace :benchmark do
-  desc 'Run simple operations benchmark'
-  task :simple => :compile do
-    ruby 'benchmark/simple_operations.rb'
+  desc "Run simple operations benchmark"
+  task simple: :compile do
+    ruby "benchmark/simple_operations.rb"
   end
 
-  desc 'Run computation benchmark'
-  task :computation => :compile do
-    ruby 'benchmark/computation.rb'
+  desc "Run computation benchmark"
+  task computation: :compile do
+    ruby "benchmark/computation.rb"
   end
 
-  desc 'Run JSON operations benchmark'
-  task :json => :compile do
-    ruby 'benchmark/json_operations.rb'
+  desc "Run JSON operations benchmark"
+  task json: :compile do
+    ruby "benchmark/json_operations.rb"
   end
 
-  desc 'Run array operations benchmark'
-  task :array => :compile do
-    ruby 'benchmark/array_operations.rb'
+  desc "Run array operations benchmark"
+  task array: :compile do
+    ruby "benchmark/array_operations.rb"
   end
 
-  desc 'Run sandbox overhead benchmark'
-  task :overhead => :compile do
-    ruby 'benchmark/sandbox_overhead.rb'
+  desc "Run sandbox overhead benchmark"
+  task overhead: :compile do
+    ruby "benchmark/sandbox_overhead.rb"
   end
 
-  desc 'Run memory limits benchmark'
-  task :memory => :compile do
-    ruby 'benchmark/memory_limits.rb'
+  desc "Run memory limits benchmark"
+  task memory: :compile do
+    ruby "benchmark/memory_limits.rb"
   end
 
-  desc 'Run console output benchmark'
-  task :console => :compile do
-    ruby 'benchmark/console_output.rb'
+  desc "Run console output benchmark"
+  task console: :compile do
+    ruby "benchmark/console_output.rb"
   end
 end
 
 # Update mquickjs from upstream
-desc 'Update mquickjs to the latest version from GitHub'
+# Configuration constants
+MQUICKJS_GITHUB_REPO = "https://github.com/bellard/mquickjs.git"
+MQUICKJS_EXT_DIR = "ext/mquickjs"
+
+# Files to EXCLUDE from the upstream copy (Ruby-specific or not needed)
+MQUICKJS_EXCLUDE_FILES = %w[
+  mquickjs_ext.c
+  mquickjs_wrapper.h
+  extconf.rb
+  mqjs.c
+  readline.c
+  readline.h
+  readline_tty.c
+  readline_tty.h
+  example.c
+  example_stdlib.c
+].freeze
+
+# Generated files that will be recreated during build (backup but don't copy from upstream)
+MQUICKJS_GENERATED_FILES = %w[
+  mquickjs_atom.h
+  mqjs_stdlib.h
+].freeze
+
+desc "Update mquickjs to the latest version from GitHub"
 task :update_mquickjs do
-  require 'fileutils'
-  require 'tmpdir'
-
-  # Configuration
-  GITHUB_REPO = 'https://github.com/bellard/mquickjs.git'
-  EXT_DIR = 'ext/mquickjs'
-
-  # Files to EXCLUDE from the upstream copy (Ruby-specific or not needed)
-  EXCLUDE_FILES = %w[
-    mquickjs_ext.c
-    mquickjs_wrapper.h
-    extconf.rb
-    mqjs.c
-    readline.c
-    readline.h
-    readline_tty.c
-    readline_tty.h
-    example.c
-    example_stdlib.c
-  ]
-
-  # Generated files that will be recreated during build (backup but don't copy from upstream)
-  GENERATED_FILES = %w[
-    mquickjs_atom.h
-    mqjs_stdlib.h
-  ]
+  require "fileutils"
+  require "tmpdir"
 
   puts "Updating mquickjs from upstream repository..."
-  puts "Source: #{GITHUB_REPO}"
+  puts "Source: #{MQUICKJS_GITHUB_REPO}"
   puts ""
 
   # Create backup directory
-  timestamp = Time.now.strftime('%Y%m%d_%H%M%S')
-  backup_dir = "#{EXT_DIR}/backup_#{timestamp}"
+  timestamp = Time.now.strftime("%Y%m%d_%H%M%S")
+  backup_dir = "#{MQUICKJS_EXT_DIR}/backup_#{timestamp}"
   FileUtils.mkdir_p(backup_dir)
   puts "Creating backup in #{backup_dir}..."
 
   # Backup all existing C/H files
-  Dir.glob("#{EXT_DIR}/*.{c,h}").each do |file|
+  Dir.glob("#{MQUICKJS_EXT_DIR}/*.{c,h}").each do |file|
     FileUtils.cp(file, backup_dir)
   end
 
@@ -124,12 +125,12 @@ task :update_mquickjs do
 
   # Clone the repository to a temp directory
   Dir.mktmpdir do |tmp_dir|
-    clone_dir = File.join(tmp_dir, 'mquickjs')
+    clone_dir = File.join(tmp_dir, "mquickjs")
 
     # Clone the repository
-    unless system("git clone --depth 1 --quiet #{GITHUB_REPO} #{clone_dir}")
+    unless system("git clone --depth 1 --quiet #{MQUICKJS_GITHUB_REPO} #{clone_dir}")
       puts "Failed to clone repository. Restoring from backup..."
-      FileUtils.cp(Dir.glob("#{backup_dir}/*"), EXT_DIR)
+      FileUtils.cp(Dir.glob("#{backup_dir}/*"), MQUICKJS_EXT_DIR)
       abort "Update failed: Could not clone repository"
     end
 
@@ -140,7 +141,7 @@ task :update_mquickjs do
     upstream_files = Dir.glob("#{clone_dir}/*.{c,h}").map { |f| File.basename(f) }
 
     # Filter out excluded files
-    files_to_copy = upstream_files - EXCLUDE_FILES - GENERATED_FILES
+    files_to_copy = upstream_files - MQUICKJS_EXCLUDE_FILES - MQUICKJS_GENERATED_FILES
 
     if files_to_copy.empty?
       puts "No files to copy!"
@@ -151,18 +152,18 @@ task :update_mquickjs do
     copied = []
     files_to_copy.each do |file|
       src = File.join(clone_dir, file)
-      dst = File.join(EXT_DIR, file)
+      dst = File.join(MQUICKJS_EXT_DIR, file)
 
-      if File.exist?(src)
-        FileUtils.cp(src, dst)
-        # Check if this is a new file or an update
-        if File.exist?(File.join(backup_dir, file))
-          puts "  Updated: #{file}"
-        else
-          puts "  Added (new): #{file}"
-        end
-        copied << file
+      next unless File.exist?(src)
+
+      FileUtils.cp(src, dst)
+      # Check if this is a new file or an update
+      if File.exist?(File.join(backup_dir, file))
+        puts "  Updated: #{file}"
+      else
+        puts "  Added (new): #{file}"
       end
+      copied << file
     end
 
     puts ""
@@ -172,16 +173,16 @@ task :update_mquickjs do
 
     # Show which files were excluded
     puts "Excluded files (Ruby-specific):"
-    EXCLUDE_FILES.each { |f| puts "  - #{f}" }
+    MQUICKJS_EXCLUDE_FILES.each { |f| puts "  - #{f}" }
     puts ""
 
     puts "Generated files (will be recreated during build):"
-    GENERATED_FILES.each { |f| puts "  - #{f}" }
+    MQUICKJS_GENERATED_FILES.each { |f| puts "  - #{f}" }
     puts ""
 
     # Check for files that were in backup but not copied (potentially removed upstream)
     removed_files = Dir.glob("#{backup_dir}/*.{c,h}").map { |f| File.basename(f) } -
-                    copied - EXCLUDE_FILES - GENERATED_FILES
+                    copied - MQUICKJS_EXCLUDE_FILES - MQUICKJS_GENERATED_FILES
 
     if removed_files.any?
       puts "WARNING: These files exist locally but not in upstream:"
@@ -192,9 +193,9 @@ task :update_mquickjs do
   end
 
   # Apply custom patches
-  patches_dir = File.join(EXT_DIR, 'patches')
+  patches_dir = File.join(MQUICKJS_EXT_DIR, "patches")
   if Dir.exist?(patches_dir)
-    patch_files = Dir.glob(File.join(patches_dir, '*.patch')).sort
+    patch_files = Dir.glob(File.join(patches_dir, "*.patch")).sort
 
     if patch_files.any?
       puts "Applying custom patches..."
@@ -229,4 +230,4 @@ task :update_mquickjs do
 end
 
 # Default: clean, compile, test
-task default: [:clean, :compile, :test]
+task default: %i[clean compile test]

@@ -14,25 +14,26 @@ AllCops:
 
 # Style preferences
 Style/StringLiterals:
-  EnforcedStyle: single_quotes
+  EnforcedStyle: double_quotes
 
 Style/Documentation:
   Enabled: false
+
+# Metrics
+Metrics:
+  Enabled: false
+
+# Minitest
+Minitest/MultipleAssertions:
+  Enabled: false
+
+# Naming
+Naming/VariableNumber:
+  Exclude:
+    - "test/**/*"
 
 # Layout preferences
 Layout/LineLength:
   Max: 120
   Exclude:
-    - 'mquickjs.gemspec'
-
-# Metrics
-Metrics/BlockLength:
-  Exclude:
-    - 'Rakefile'
-    - 'mquickjs.gemspec'
-    - 'test/**/*'
-
-Metrics/MethodLength:
-  Max: 20
-  Exclude:
-    - 'Rakefile'
+    - "mquickjs.gemspec"

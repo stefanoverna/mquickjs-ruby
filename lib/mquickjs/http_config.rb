@@ -1,28 +1,28 @@
 # frozen_string_literal: true
 
-require 'uri'
-require 'ipaddr'
-require 'net/http'
+require "uri"
+require "ipaddr"
+require "net/http"
 
 module MQuickJS
   class HTTPConfig
     DEFAULT_MAX_REQUESTS = 10
-    DEFAULT_REQUEST_TIMEOUT = 5000  # ms
-    DEFAULT_MAX_REQUEST_SIZE = 1_048_576  # 1MB
-    DEFAULT_MAX_RESPONSE_SIZE = 1_048_576  # 1MB
+    DEFAULT_REQUEST_TIMEOUT = 5000 # ms
+    DEFAULT_MAX_REQUEST_SIZE = 1_048_576 # 1MB
+    DEFAULT_MAX_RESPONSE_SIZE = 1_048_576 # 1MB
     DEFAULT_ALLOWED_METHODS = %w[GET POST PUT DELETE PATCH HEAD].freeze
     DEFAULT_ALLOWED_PORTS = [80, 443].freeze
 
     # Private IP ranges (RFC 1918) and other blocked ranges
     BLOCKED_IP_RANGES = [
-      '10.0.0.0/8',          # Private
-      '172.16.0.0/12',       # Private
-      '192.168.0.0/16',      # Private
-      '127.0.0.0/8',         # Loopback
-      '169.254.0.0/16',      # Link-local (AWS metadata)
-      '::1/128',             # IPv6 loopback
-      'fe80::/10',           # IPv6 link-local
-      '169.254.169.254/32'   # AWS/GCP/Azure metadata
+      "10.0.0.0/8",          # Private
+      "172.16.0.0/12",       # Private
+      "192.168.0.0/16",      # Private
+      "127.0.0.0/8",         # Loopback
+      "169.254.0.0/16",      # Link-local (AWS metadata)
+      "::1/128",             # IPv6 loopback
+      "fe80::/10",           # IPv6 link-local
+      "169.254.169.254/32"   # AWS/GCP/Azure metadata
     ].map { |cidr| IPAddr.new(cidr) }.freeze
 
     attr_reader :whitelist, :max_requests, :request_timeout,
@@ -47,7 +47,7 @@ module MQuickJS
       uri = URI.parse(url)
 
       # Check port if allowed_ports is specified
-      port = uri.port || (uri.scheme == 'https' ? 443 : 80)
+      port = uri.port || (uri.scheme == "https" ? 443 : 80)
       return false if @allowed_ports && !@allowed_ports.include?(port)
 
       # Check against whitelist patterns
@@ -74,33 +74,24 @@ module MQuickJS
     end
 
     # Validate a URL before making a request
-    def validate_url(url)
+    def validate_url!(url)
       uri = URI.parse(url)
 
       # Only allow http/https
-      unless %w[http https].include?(uri.scheme)
-        raise HTTPBlockedError, "URL scheme '#{uri.scheme}' not allowed"
-      end
+      raise HTTPBlockedError, "URL scheme '#{uri.scheme}' not allowed" unless %w[http https].include?(uri.scheme)
 
       # Check whitelist
-      unless allowed?(url)
-        raise HTTPBlockedError, "URL not in whitelist: #{url}"
-      end
+      raise HTTPBlockedError, "URL not in whitelist: #{url}" unless allowed?(url)
 
       # Check if host resolves to blocked IP
-      if blocked_ip?(uri.host)
-        raise HTTPBlockedError, "URL resolves to blocked IP address: #{url}"
-      end
-
-      true
+      raise HTTPBlockedError, "URL resolves to blocked IP address: #{url}" if blocked_ip?(uri.host)
     end
 
     # Validate HTTP method
     def validate_method(method)
       method_upper = method.to_s.upcase
-      unless @allowed_methods.include?(method_upper)
-        raise HTTPBlockedError, "HTTP method '#{method}' not allowed"
-      end
+      raise HTTPBlockedError, "HTTP method '#{method}' not allowed" unless @allowed_methods.include?(method_upper)
+
       method_upper
     end
 
@@ -113,9 +104,9 @@ module MQuickJS
         # * matches anything except /
         # ** matches anything including /
         regex_str = Regexp.escape(pattern)
-                          .gsub('\*\*', '___DOUBLE_STAR___')
-                          .gsub('\*', '[^/]*')
-                          .gsub('___DOUBLE_STAR___', '.*')
+                          .gsub('\*\*', "___DOUBLE_STAR___")
+                          .gsub('\*', "[^/]*")
+                          .gsub("___DOUBLE_STAR___", ".*")
 
         Regexp.new("^#{regex_str}$")
       end
@@ -133,7 +124,7 @@ module MQuickJS
 
       # Resolve DNS
       begin
-        require 'resolv'
+        require "resolv"
         Resolv.getaddress(host)
       rescue Resolv::ResolvError
         nil

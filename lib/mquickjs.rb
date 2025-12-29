@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
-require_relative 'mquickjs/version'
-require_relative 'mquickjs/errors'
-require_relative 'mquickjs/result'
-require_relative 'mquickjs/http_config'
-require_relative 'mquickjs/http_executor'
-require_relative 'mquickjs/mquickjs_native'
-require_relative 'mquickjs/sandbox'
+require_relative "mquickjs/version"
+require_relative "mquickjs/errors"
+require_relative "mquickjs/result"
+require_relative "mquickjs/http_config"
+require_relative "mquickjs/http_executor"
+require_relative "mquickjs/mquickjs_native"
+require_relative "mquickjs/sandbox"
 
 module MQuickJS
   # Convenience method for one-shot evaluation

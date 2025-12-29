@@ -1,24 +1,23 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-require 'mquickjs'
-require 'minitest/autorun'
-require 'json'
+require "mquickjs"
+require "minitest/autorun"
+require "json"
 
 class TestHTTPExecutor < Minitest::Test
-
   def test_http_config_initialization
     config = MQuickJS::HTTPConfig.new(
-      whitelist: ['https://api.example.com/*'],
+      whitelist: ["https://api.example.com/*"],
       max_requests: 5
     )
 
     assert_equal 5, config.max_requests
-    assert config.allowed?('https://api.example.com/data')
-    refute config.allowed?('https://other.com/data')
+    assert config.allowed?("https://api.example.com/data")
+    refute config.allowed?("https://other.com/data")
   end
 
-  # Note: These tests validate HTTP infrastructure without making actual HTTP calls
+  # NOTE: These tests validate HTTP infrastructure without making actual HTTP calls
   # Full HTTP integration tests with real requests would require a test server
 
   def test_http_executor_blocked_url
@@ -29,7 +28,7 @@ class TestHTTPExecutor < Minitest::Test
     executor = MQuickJS::HTTPExecutor.new(config)
 
     error = assert_raises(MQuickJS::HTTPBlockedError) do
-      executor.execute('GET', 'https://blocked.com/data')
+      executor.execute("GET", "https://blocked.com/data")
     end
 
     assert_match(/not in whitelist/, error.message)
@@ -49,13 +48,13 @@ class TestHTTPExecutor < Minitest::Test
   def test_http_executor_method_validation
     config = MQuickJS::HTTPConfig.new(
       whitelist: ["http://localhost:8765/**"],
-      allowed_methods: ['GET', 'POST']
+      allowed_methods: %w[GET POST]
     )
 
     executor = MQuickJS::HTTPExecutor.new(config)
 
     error = assert_raises(MQuickJS::HTTPBlockedError) do
-      executor.execute('DELETE', 'http://localhost:8765/get')
+      executor.execute("DELETE", "http://localhost:8765/get")
     end
 
     assert_match(/not allowed/, error.message)
@@ -76,21 +75,22 @@ class TestHTTPExecutor < Minitest::Test
 
   def test_http_request_object
     request = MQuickJS::HTTPRequest.new(
-      method: 'GET',
-      url: 'https://api.example.com/data',
+      method: "GET",
+      url: "https://api.example.com/data",
       status: 200,
       duration_ms: 150,
       request_size: 256,
       response_size: 1024
     )
 
-    assert_equal 'GET', request.method
-    assert_equal 'https://api.example.com/data', request.url
+    assert_equal "GET", request.method
+    assert_equal "https://api.example.com/data", request.url
     assert_equal 200, request.status
     assert_equal 150, request.duration_ms
 
     hash = request.to_h
-    assert_equal 'GET', hash[:method]
+
+    assert_equal "GET", hash[:method]
     assert_equal 200, hash[:status]
   end
 end

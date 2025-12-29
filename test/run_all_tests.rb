@@ -3,13 +3,13 @@
 
 # Run all test suites
 
-require 'minitest/autorun'
+require "minitest/autorun"
 
 # Load all test files
-Dir[File.join(__dir__, '**/*_test.rb')].each do |test_file|
+Dir[File.join(__dir__, "**/*_test.rb")].sort.each do |test_file|
   require test_file
 end
 
-puts "\n" + "="*70
+puts "\n#{'=' * 70}"
 puts "All MQuickJS Tests Complete"
-puts "="*70
+puts "=" * 70
