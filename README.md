@@ -1,50 +1,109 @@
-# MQuickJS - Secure JavaScript Sandbox for Ruby
+****# MQuickJS - JavaScript Sandbox for Ruby
 
 [![Gem Version](https://badge.fury.io/rb/mquickjs.svg)](https://badge.fury.io/rb/mquickjs)
 [![Build Status](https://github.com/stefanoverna/mquickjs-ruby/workflows/CI/badge.svg)](https://github.com/stefanoverna/mquickjs-ruby/actions)
 
-**MQuickJS** provides a secure, memory-safe JavaScript execution environment for Ruby applications. Built on [MicroQuickJS](https://bellard.org/mquickjs/) (a minimal QuickJS engine by Fabrice Bellard), it offers strict resource limits, sandboxed execution, and comprehensive HTTP security controls.
+**MQuickJS** provides a JavaScript execution environment for Ruby applications with resource controls and isolation features. Built on [MicroQuickJS](https://bellard.org/mquickjs/) (a minimal QuickJS engine by Fabrice Bellard), it offers strict memory limits, CPU timeouts, and sandboxed execution.
 
-Perfect for running untrusted JavaScript code with guaranteed safety - evaluate user scripts, process webhooks, execute templates, or build plugin systems without compromising your application's security.
+Useful for evaluating user scripts, processing webhooks, executing templates, or building plugin systems in **trusted environments** or with **additional security measures**.
+
+## Security Notice
+
+**IMPORTANT:** This gem is built on MicroQuickJS, a young and minimal JavaScript engine that may contain security vulnerabilities. The sandboxing and resource limits provided by this gem are defense-in-depth measures, not a complete security solution.
+
+**Use this gem ONLY if:**
+- You are executing **trusted code** from known, vetted sources
+- OR you are using **additional isolation** such as:
+  - Running inside Docker containers with restricted capabilities
+  - Using security sandboxes like [sandbox-runtime](https://github.com/anthropic-experimental/sandbox-runtime)
+  - Operating system-level isolation (VMs, gVisor, Firecracker, etc.)
+
+**DO NOT use this gem to execute untrusted JavaScript code directly in production without additional security layers.** No JavaScript engine sandboxing alone should be considered sufficient for hostile code execution.
 
 ## Table of Contents
 
+- [Security Notice](#security-notice)
+- [Table of Contents](#table-of-contents)
 - [Features](#features)
+  - [Defense-in-Depth Features](#defense-in-depth-features)
+  - [Production-Ready](#production-ready)
 - [Installation](#installation)
   - [System Requirements](#system-requirements)
   - [From RubyGems](#from-rubygems)
   - [From Source](#from-source)
+    - [How the Build Works](#how-the-build-works)
 - [Quick Start](#quick-start)
 - [Usage Guide](#usage-guide)
   - [Basic Execution](#basic-execution)
   - [Passing Data to Scripts](#passing-data-to-scripts)
-  - [Memory & CPU Limits](#memory--cpu-limits)
+  - [Memory \& CPU Limits](#memory--cpu-limits)
   - [Console Output](#console-output)
-  - [HTTP Requests](#http-requests-experimental)
+  - [HTTP Requests](#http-requests)
     - [HTTP Configuration Options](#http-configuration-options)
     - [Response Properties](#response-properties)
 - [JavaScript Limitations](#javascript-limitations)
+  - [Language Features](#language-features)
+    - [Supported (ES5-ish)](#supported-es5-ish)
+    - [Not Supported](#not-supported)
+  - [Available Standard Library](#available-standard-library)
+  - [Code Examples](#code-examples)
+    - [Good (Will Work)](#good-will-work)
+    - [Bad (Will Not Work)](#bad-will-not-work)
+  - [Workarounds](#workarounds)
 - [Security Guardrails](#security-guardrails)
   - [Memory Safety](#memory-safety)
+    - [Fixed Memory Allocation](#fixed-memory-allocation)
   - [CPU Protection](#cpu-protection)
+    - [Execution Timeout](#execution-timeout)
   - [Console Output Limits](#console-output-limits)
+    - [Size Restriction](#size-restriction)
   - [HTTP Security](#http-security)
+    - [URL Whitelist](#url-whitelist)
+    - [IP Address Blocking](#ip-address-blocking)
+    - [Rate Limiting](#rate-limiting)
+    - [Request Timeouts and Size Limits](#request-timeouts-and-size-limits)
+    - [Complete HTTP Security Example](#complete-http-security-example)
   - [Sandboxing](#sandboxing)
+    - [No File System Access](#no-file-system-access)
+    - [No Network Access](#no-network-access)
+    - [No Process Access](#no-process-access)
+    - [Isolated Global Scope](#isolated-global-scope)
   - [Error Handling](#error-handling)
     - [MQuickJS::SyntaxError](#mquickjssyntaxerror)
     - [MQuickJS::JavaScriptError](#mquickjsjavascripterror)
 - [API Reference](#api-reference)
+  - [MQuickJS.eval(code, options = {})](#mquickjsevalcode-options--)
+  - [MQuickJS::Sandbox.new(options = {})](#mquickjssandboxnewoptions--)
+  - [Sandbox#eval(code)](#sandboxevalcode)
+  - [Sandbox#set\_variable(name, value)](#sandboxset_variablename-value)
+  - [MQuickJS::Result](#mquickjsresult)
 - [Performance](#performance)
+  - [Running Benchmarks](#running-benchmarks)
+  - [Benchmark Results](#benchmark-results)
+    - [Simple Operations (1000 iterations)](#simple-operations-1000-iterations)
+    - [Computation (100 iterations)](#computation-100-iterations)
+    - [JSON Operations (1000 iterations)](#json-operations-1000-iterations)
+    - [Array Operations (500 iterations)](#array-operations-500-iterations)
+    - [Sandbox Overhead (1000 iterations)](#sandbox-overhead-1000-iterations)
+  - [Performance Characteristics](#performance-characteristics)
+  - [Optimization Tips](#optimization-tips)
 - [Contributing](#contributing)
+  - [Development Setup](#development-setup)
+  - [Running Tests](#running-tests)
 - [License](#license)
+- [Credits](#credits)
+- [Security Recommendations](#security-recommendations)
+  - [When to Use Additional Isolation](#when-to-use-additional-isolation)
+  - [Threat Model](#threat-model)
+  - [Reporting Security Issues](#reporting-security-issues)
 
 ## Features
 
-### Security-First Design
+### Defense-in-Depth Features
 
 - **Strict Memory Limits** - Fixed memory allocation, no dynamic growth
 - **CPU Timeout Enforcement** - Configurable execution time limits
-- **Sandboxed Execution** - Isolated from file system and network
+- **Sandboxed Execution** - Isolated from file system and network (within the JavaScript engine)
 - **Console Output Limits** - Prevent memory exhaustion via console.log
 - **HTTP Security Controls** - Whitelist, rate limiting, IP blocking
 - **No Dangerous APIs** - No eval(), no file I/O, no arbitrary code loading
@@ -312,13 +371,13 @@ The `fetch()` function returns a response object similar to the standard [Fetch 
 
 Available properties:
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `status` | Integer | HTTP status code (e.g., 200, 404, 500) |
-| `statusText` | String | HTTP status message (e.g., "OK", "Not Found") |
-| `ok` | Boolean | `true` if status is 200-299, `false` otherwise |
-| `body` | String | Response body as a string |
-| `headers` | Object | Response headers as key-value pairs |
+| Property     | Type    | Description                                    |
+| ------------ | ------- | ---------------------------------------------- |
+| `status`     | Integer | HTTP status code (e.g., 200, 404, 500)         |
+| `statusText` | String  | HTTP status message (e.g., "OK", "Not Found")  |
+| `ok`         | Boolean | `true` if status is 200-299, `false` otherwise |
+| `body`       | String  | Response body as a string                      |
+| `headers`    | Object  | Response headers as key-value pairs            |
 
 ```javascript
 var response = fetch('https://api.example.com/users');
@@ -509,7 +568,7 @@ User.prototype.greet = function() {
 
 ## Security Guardrails
 
-MQuickJS implements multiple layers of security to ensure safe execution of untrusted code.
+MQuickJS implements multiple layers of defense-in-depth security controls. While these features provide important resource limits and isolation, they should not be relied upon as the sole security mechanism for executing untrusted code.
 
 ### Memory Safety
 
@@ -920,15 +979,15 @@ sandbox.eval("throw new Error('something went wrong')")
 
 **Error types captured as JavaScriptError:**
 
-| JavaScript Error | Description |
-|-----------------|-------------|
-| `Error` | Generic error from `throw new Error()` |
-| `TypeError` | Type mismatch (e.g., calling non-function, property of null) |
-| `ReferenceError` | Accessing undefined variable |
-| `RangeError` | Value out of allowed range |
-| `URIError` | Malformed URI functions |
-| `EvalError` | Error in eval() (rarely thrown) |
-| `InternalError` | Internal engine error |
+| JavaScript Error | Description                                                  |
+| ---------------- | ------------------------------------------------------------ |
+| `Error`          | Generic error from `throw new Error()`                       |
+| `TypeError`      | Type mismatch (e.g., calling non-function, property of null) |
+| `ReferenceError` | Accessing undefined variable                                 |
+| `RangeError`     | Value out of allowed range                                   |
+| `URIError`       | Malformed URI functions                                      |
+| `EvalError`      | Error in eval() (rarely thrown)                              |
+| `InternalError`  | Internal engine error                                        |
 
 **Debugging tips:**
 
@@ -1246,6 +1305,44 @@ The gem is available as open source under the terms of the [MIT License](https:/
 - **MicroQuickJS**: Created by Fabrice Bellard - https://bellard.org/mquickjs/
 - **QuickJS**: The original JavaScript engine - https://bellard.org/quickjs/
 
-## Security
+## Security Recommendations
 
-For security issues, please email security@example.com instead of using the issue tracker.
+### When to Use Additional Isolation
+
+For untrusted code execution, **always** use additional security layers beyond this gem:
+
+**Option 1: Docker Containers**
+```bash
+# Run with restricted capabilities and no network
+docker run --rm --cap-drop=ALL --network=none \
+  -v $(pwd):/app ruby:3.3 \
+  ruby /app/your_script.rb
+```
+
+**Option 2: Anthropic Sandbox Runtime**
+- [sandbox-runtime](https://github.com/anthropic-experimental/sandbox-runtime) provides secure Python/JavaScript sandboxing
+- Designed specifically for LLM-generated code execution
+
+**Option 3: VM-based Isolation**
+- gVisor for lightweight VM isolation
+- Firecracker for microVM isolation
+- Traditional VMs for maximum isolation
+
+### Threat Model
+
+**What this gem protects against:**
+- Accidental infinite loops (via timeout)
+- Memory exhaustion (via memory limits)
+- Excessive console output
+- Basic SSRF attempts (via HTTP whitelist and IP blocking)
+
+**What this gem does NOT protect against:**
+- JavaScript engine vulnerabilities (RCE, sandbox escapes)
+- Side-channel attacks
+- Timing attacks
+- CPU-based DoS (partially mitigated by timeout)
+- All classes of sophisticated attacks
+
+### Reporting Security Issues
+
+For security vulnerabilities in this gem, please email security@datocms.com instead of using the issue tracker.
