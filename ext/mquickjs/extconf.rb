@@ -6,13 +6,12 @@ require 'fileutils'
 # Configuration
 MQUICKJS_DIR = File.expand_path('.', __dir__)
 
-# Step 1: Generate mqjs_stdlib.h if needed
+# Step 1: Generate mqjs_stdlib.h and mquickjs_atom.h if needed
 stdlib_header = File.join(MQUICKJS_DIR, 'mqjs_stdlib.h')
+atom_header = File.join(MQUICKJS_DIR, 'mquickjs_atom.h')
 stdlib_generator_src = File.join(MQUICKJS_DIR, 'mqjs_stdlib.c')
 
 if File.exist?(stdlib_generator_src)
-  puts "Generating mqjs_stdlib.h..."
-
   # Compile the stdlib generator
   generator_exe = File.join(MQUICKJS_DIR, 'mqjs_stdlib_gen')
 
@@ -30,7 +29,19 @@ if File.exist?(stdlib_generator_src)
     abort "Failed to compile stdlib generator"
   end
 
-  # Run the generator to create the header (use -m64 for 64-bit pointers)
+  # Generate mquickjs_atom.h first
+  puts "Generating mquickjs_atom.h..."
+  generate_atom_cmd = "#{generator_exe} -m64 -a > #{atom_header}"
+  puts generate_atom_cmd
+
+  unless system(generate_atom_cmd)
+    abort "Failed to generate mquickjs_atom.h"
+  end
+
+  puts "Generated #{atom_header}"
+
+  # Run the generator to create the stdlib header (use -m64 for 64-bit pointers)
+  puts "Generating mqjs_stdlib.h..."
   generate_cmd = "#{generator_exe} -m64 > #{stdlib_header}"
   puts generate_cmd
 
@@ -38,10 +49,10 @@ if File.exist?(stdlib_generator_src)
     abort "Failed to generate mqjs_stdlib.h"
   end
 
+  puts "Generated #{stdlib_header}"
+
   # Clean up generator executable
   FileUtils.rm_f(generator_exe)
-
-  puts "Generated #{stdlib_header}"
 end
 
 # Step 2: Build the Ruby extension
