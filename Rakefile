@@ -14,6 +14,8 @@ Rake::TestTask.new(:test) do |t|
   t.libs << 'lib'
   t.test_files = FileList['test/**/*_test.rb']
   t.verbose = true
+  # Disable automatic plugin loading to avoid conflicts with globally installed gems
+  t.options = '--no-plugins'
 end
 
 # Clean task

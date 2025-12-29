@@ -412,6 +412,52 @@ static VALUE js_to_ruby(JSContext *ctx, JSValue val) {
     return Qnil;
 }
 
+// Forward declaration
+static JSValue ruby_to_js(JSContext *ctx, VALUE rb_val);
+
+// Helper struct for hash iteration
+struct hash_iter_data {
+    JSContext *ctx;
+    JSValue obj;
+    int has_error;
+};
+
+// Callback for hash iteration
+static int hash_foreach_cb(VALUE key, VALUE val, VALUE arg) {
+    struct hash_iter_data *data = (struct hash_iter_data *)arg;
+
+    if (data->has_error) {
+        return ST_STOP;
+    }
+
+    // Convert key to string (symbols and strings are common)
+    const char *key_str;
+    VALUE key_str_val;
+
+    if (TYPE(key) == T_SYMBOL) {
+        key_str = rb_id2name(SYM2ID(key));
+    } else if (TYPE(key) == T_STRING) {
+        key_str = StringValueCStr(key);
+    } else {
+        // Convert other types to string
+        key_str_val = rb_funcall(key, rb_intern("to_s"), 0);
+        key_str = StringValueCStr(key_str_val);
+    }
+
+    // Convert value
+    JSValue js_val = ruby_to_js(data->ctx, val);
+
+    if (JS_IsException(js_val)) {
+        data->has_error = 1;
+        return ST_STOP;
+    }
+
+    // Set property
+    JS_SetPropertyStr(data->ctx, data->obj, key_str, js_val);
+
+    return ST_CONTINUE;
+}
+
 // Convert Ruby value to JavaScript value
 static JSValue ruby_to_js(JSContext *ctx, VALUE rb_val) {
     // nil -> null
@@ -490,54 +536,11 @@ static JSValue ruby_to_js(JSContext *ctx, VALUE rb_val) {
             return js_obj;
         }
 
-        // Helper struct for hash iteration
-        struct hash_iter_data {
-            JSContext *ctx;
-            JSValue obj;
-            int has_error;
-        };
-
         struct hash_iter_data iter_data = {
             .ctx = ctx,
             .obj = js_obj,
             .has_error = 0
         };
-
-        // Iteration callback
-        int hash_foreach_cb(VALUE key, VALUE val, VALUE arg) {
-            struct hash_iter_data *data = (struct hash_iter_data *)arg;
-
-            if (data->has_error) {
-                return ST_STOP;
-            }
-
-            // Convert key to string (symbols and strings are common)
-            const char *key_str;
-            VALUE key_str_val;
-
-            if (TYPE(key) == T_SYMBOL) {
-                key_str = rb_id2name(SYM2ID(key));
-            } else if (TYPE(key) == T_STRING) {
-                key_str = StringValueCStr(key);
-            } else {
-                // Convert other types to string
-                key_str_val = rb_funcall(key, rb_intern("to_s"), 0);
-                key_str = StringValueCStr(key_str_val);
-            }
-
-            // Convert value
-            JSValue js_val = ruby_to_js(data->ctx, val);
-
-            if (JS_IsException(js_val)) {
-                data->has_error = 1;
-                return ST_STOP;
-            }
-
-            // Set property
-            JS_SetPropertyStr(data->ctx, data->obj, key_str, js_val);
-
-            return ST_CONTINUE;
-        }
 
         // Iterate over hash
         rb_hash_foreach(rb_val, hash_foreach_cb, (VALUE)&iter_data);

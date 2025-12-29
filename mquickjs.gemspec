@@ -5,7 +5,7 @@ require_relative 'lib/mquickjs/version'
 Gem::Specification.new do |spec|
   spec.name          = 'mquickjs'
   spec.version       = MQuickJS::VERSION
-  spec.authors       = ['Stefano Veran']
+  spec.authors       = ['Stefano Verna']
   spec.email         = ['s.verna@datocms.com']
 
   spec.summary       = 'Secure JavaScript sandbox for Ruby using MicroQuickJS'

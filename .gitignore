@@ -4,3 +4,4 @@ Makefile
 tmp/
 ext/mquickjs/mqjs_stdlib_gen
 ext/mquickjs/mkmf.log
+lib/mquickjs/mquickjs_native.bundle
