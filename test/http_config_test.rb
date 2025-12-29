@@ -53,7 +53,7 @@ class TestHTTPConfig < Minitest::Test
 
     refute config.allowed?("https://evil.com/malware")
     refute config.allowed?("https://evil.com/anything")
-    assert config.allowed?("https://evil.com/nested/path")  # * doesn't match /
+    assert config.allowed?("https://evil.com/nested/path") # * doesn't match /
     assert config.allowed?("https://safe.com/anything")
   end
 
@@ -92,8 +92,8 @@ class TestHTTPConfig < Minitest::Test
     allowlist_config = MQuickJS::HTTPConfig.new(allowlist: ["https://api.github.com/**"])
     denylist_config = MQuickJS::HTTPConfig.new(denylist: ["https://evil.com/**"])
 
-    refute allowlist_config.denylist_mode?
-    assert denylist_config.denylist_mode?
+    refute_predicate allowlist_config, :denylist_mode?
+    assert_predicate denylist_config, :denylist_mode?
   end
 
   def test_port_validation
@@ -226,7 +226,7 @@ class TestHTTPConfig < Minitest::Test
 
     refute config.allowed?("https://api.evil.com/data")
     refute config.allowed?("https://www.evil.com/path")
-    assert config.allowed?("https://evil.com/path")  # No subdomain, not blocked
+    assert config.allowed?("https://evil.com/path") # No subdomain, not blocked
     assert config.allowed?("https://safe.com/path")
   end
 end

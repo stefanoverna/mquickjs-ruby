@@ -56,7 +56,7 @@ module MQuickJS
 
       if @denylist.any?
         # Denylist mode: allow everything EXCEPT denied patterns
-        !@denylist.any? { |pattern| pattern.match?(url) }
+        @denylist.none? { |pattern| pattern.match?(url) }
       else
         # Allowlist mode: only allow matching patterns
         @allowlist.any? { |pattern| pattern.match?(url) }
@@ -91,11 +91,10 @@ module MQuickJS
 
       # Check allowlist/denylist
       unless allowed?(url)
-        if denylist_mode?
-          raise HTTPBlockedError, "URL matches denylist: #{url}"
-        else
-          raise HTTPBlockedError, "URL not in allowlist: #{url}"
-        end
+        raise HTTPBlockedError, "URL matches denylist: #{url}" if denylist_mode?
+
+        raise HTTPBlockedError, "URL not in allowlist: #{url}"
+
       end
 
       # Check if host resolves to blocked IP
