@@ -169,6 +169,38 @@ class TestMQuickJS < Minitest::Test
     assert_equal 30, result.value
   end
 
+  def test_return_array
+    result = MQuickJS.eval("[1, 2, 3]")
+
+    assert_equal [1, 2, 3], result.value
+  end
+
+  def test_return_mixed_array
+    result = MQuickJS.eval("[1, 'two', 3.5, true, null]")
+
+    assert_equal [1, "two", 3.5, true, nil], result.value
+  end
+
+  def test_return_object
+    result = MQuickJS.eval("({name: 'Alice', age: 30})")
+
+    assert_equal({ "name" => "Alice", "age" => 30 }, result.value)
+  end
+
+  def test_return_nested_structure
+    result = MQuickJS.eval("({items: [1, 2], nested: {a: 1}})")
+    expected = { "items" => [1, 2], "nested" => { "a" => 1 } }
+
+    assert_equal expected, result.value
+  end
+
+  def test_return_array_of_objects
+    result = MQuickJS.eval("[{x: 1}, {x: 2}]")
+    expected = [{ "x" => 1 }, { "x" => 2 }]
+
+    assert_equal expected, result.value
+  end
+
   def test_custom_memory_limit
     sandbox = MQuickJS::Sandbox.new(memory_limit: 100_000)
     result = sandbox.eval("1 + 1")

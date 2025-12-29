@@ -58,6 +58,7 @@ static JSValue js_fetch(JSContext *ctx, JSValue *this_val, int argc, JSValue *ar
 
 // Include the standard library
 #include "mqjs_stdlib.h"
+#include "mquickjs_priv.h"
 
 // Get current time in milliseconds
 static int64_t get_time_ms(void) {
@@ -395,6 +396,49 @@ static VALUE js_to_ruby(JSContext *ctx, JSValue val) {
             rb_enc_associate(rb_str, rb_utf8_encoding());
             return rb_str;
         }
+    }
+
+    // Array
+    int class_id = JS_GetClassID(ctx, val);
+    if (class_id == JS_CLASS_ARRAY) {
+        VALUE rb_array = rb_ary_new();
+        JSValue len_val = JS_GetPropertyStr(ctx, val, "length");
+        uint32_t len = 0;
+        JS_ToUint32(ctx, &len, len_val);
+
+        for (uint32_t i = 0; i < len; i++) {
+            JSValue elem = JS_GetPropertyUint32(ctx, val, i);
+            VALUE rb_elem = js_to_ruby(ctx, elem);
+            rb_ary_push(rb_array, rb_elem);
+        }
+        return rb_array;
+    }
+
+    // Object
+    if (class_id == JS_CLASS_OBJECT) {
+        VALUE rb_hash = rb_hash_new();
+        JSValue keys = js_object_keys(ctx, NULL, 1, &val);
+
+        if (!JS_IsException(keys)) {
+            JSValue keys_len_val = JS_GetPropertyStr(ctx, keys, "length");
+            uint32_t keys_len = 0;
+            JS_ToUint32(ctx, &keys_len, keys_len_val);
+
+            for (uint32_t i = 0; i < keys_len; i++) {
+                JSValue key_val = JS_GetPropertyUint32(ctx, keys, i);
+                JSCStringBuf key_buf;
+                const char *key = JS_ToCString(ctx, key_val, &key_buf);
+
+                if (key) {
+                    JSValue prop_val = JS_GetPropertyStr(ctx, val, key);
+                    VALUE rb_val = js_to_ruby(ctx, prop_val);
+                    VALUE rb_key = rb_str_new2(key);
+                    rb_enc_associate(rb_key, rb_utf8_encoding());
+                    rb_hash_aset(rb_hash, rb_key, rb_val);
+                }
+            }
+        }
+        return rb_hash;
     }
 
     // Fallback: convert to string
