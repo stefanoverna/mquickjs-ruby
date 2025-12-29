@@ -187,6 +187,27 @@ task :update_mquickjs do
     end
   end
 
+  # Apply custom patches
+  patches_dir = File.join(EXT_DIR, 'patches')
+  if Dir.exist?(patches_dir)
+    patch_files = Dir.glob(File.join(patches_dir, '*.patch')).sort
+
+    if patch_files.any?
+      puts "Applying custom patches..."
+      patch_files.each do |patch_file|
+        patch_name = File.basename(patch_file)
+        puts "  Applying: #{patch_name}"
+
+        # Apply patch from the repository root
+        unless system("patch -p1 < #{patch_file}")
+          puts "WARNING: Failed to apply patch: #{patch_name}"
+          puts "You may need to apply this patch manually."
+        end
+      end
+      puts ""
+    end
+  end
+
   puts "Update successful!"
   puts "Backup preserved at: #{backup_dir}"
   puts ""
@@ -199,6 +220,8 @@ task :update_mquickjs do
   puts ""
   puts "Note: Generated files (mquickjs_atom.h, mqjs_stdlib.h) will be"
   puts "recreated automatically during the next build (step 2)."
+  puts ""
+  puts "Custom patches from ext/mquickjs/patches/ have been applied."
 end
 
 # Default: clean, compile, test
