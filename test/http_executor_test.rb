@@ -8,7 +8,7 @@ require "json"
 class TestHTTPExecutor < Minitest::Test
   def test_http_config_initialization
     config = MQuickJS::HTTPConfig.new(
-      whitelist: ["https://api.example.com/*"],
+      allowlist: ["https://api.example.com/*"],
       max_requests: 5
     )
 
@@ -22,7 +22,7 @@ class TestHTTPExecutor < Minitest::Test
 
   def test_http_executor_blocked_url
     config = MQuickJS::HTTPConfig.new(
-      whitelist: ["https://allowed.com/**"]
+      allowlist: ["https://allowed.com/**"]
     )
 
     executor = MQuickJS::HTTPExecutor.new(config)
@@ -31,12 +31,12 @@ class TestHTTPExecutor < Minitest::Test
       executor.execute("GET", "https://blocked.com/data")
     end
 
-    assert_match(/not in whitelist/, error.message)
+    assert_match(/not in allowlist/, error.message)
   end
 
   def test_http_executor_initializes_properly
     config = MQuickJS::HTTPConfig.new(
-      whitelist: ["https://api.example.com/**"],
+      allowlist: ["https://api.example.com/**"],
       max_requests: 5
     )
 
@@ -47,7 +47,7 @@ class TestHTTPExecutor < Minitest::Test
 
   def test_http_executor_method_validation
     config = MQuickJS::HTTPConfig.new(
-      whitelist: ["http://localhost:8765/**"],
+      allowlist: ["http://localhost:8765/**"],
       allowed_methods: %w[GET POST]
     )
 
@@ -62,7 +62,7 @@ class TestHTTPExecutor < Minitest::Test
 
   def test_http_config_limits
     config = MQuickJS::HTTPConfig.new(
-      whitelist: ["https://api.example.com/**"],
+      allowlist: ["https://api.example.com/**"],
       max_response_size: 1000,
       max_requests: 10,
       request_timeout: 5000

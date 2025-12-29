@@ -5,18 +5,19 @@ require "mquickjs"
 require "minitest/autorun"
 
 class TestHTTPConfig < Minitest::Test
-  def test_whitelist_exact_match
+  # Allowlist tests
+  def test_allowlist_exact_match
     config = MQuickJS::HTTPConfig.new(
-      whitelist: ["https://api.github.com/users/octocat"]
+      allowlist: ["https://api.github.com/users/octocat"]
     )
 
     assert config.allowed?("https://api.github.com/users/octocat")
     refute config.allowed?("https://api.github.com/users/other")
   end
 
-  def test_whitelist_wildcard_path
+  def test_allowlist_wildcard_path
     config = MQuickJS::HTTPConfig.new(
-      whitelist: ["https://api.github.com/users/*"]
+      allowlist: ["https://api.github.com/users/*"]
     )
 
     assert config.allowed?("https://api.github.com/users/octocat")
@@ -24,9 +25,9 @@ class TestHTTPConfig < Minitest::Test
     refute config.allowed?("https://api.github.com/repos/foo")
   end
 
-  def test_whitelist_double_wildcard
+  def test_allowlist_double_wildcard
     config = MQuickJS::HTTPConfig.new(
-      whitelist: ["https://api.github.com/**"]
+      allowlist: ["https://api.github.com/**"]
     )
 
     assert config.allowed?("https://api.github.com/users/octocat")
@@ -34,9 +35,70 @@ class TestHTTPConfig < Minitest::Test
     refute config.allowed?("https://other.com/anything")
   end
 
+  # Denylist tests
+  def test_denylist_exact_match
+    config = MQuickJS::HTTPConfig.new(
+      denylist: ["https://evil.com/malware"]
+    )
+
+    refute config.allowed?("https://evil.com/malware")
+    assert config.allowed?("https://evil.com/other")
+    assert config.allowed?("https://safe.com/anything")
+  end
+
+  def test_denylist_wildcard_path
+    config = MQuickJS::HTTPConfig.new(
+      denylist: ["https://evil.com/*"]
+    )
+
+    refute config.allowed?("https://evil.com/malware")
+    refute config.allowed?("https://evil.com/anything")
+    assert config.allowed?("https://evil.com/nested/path")  # * doesn't match /
+    assert config.allowed?("https://safe.com/anything")
+  end
+
+  def test_denylist_double_wildcard
+    config = MQuickJS::HTTPConfig.new(
+      denylist: ["https://evil.com/**"]
+    )
+
+    refute config.allowed?("https://evil.com/malware")
+    refute config.allowed?("https://evil.com/nested/deep/path")
+    assert config.allowed?("https://safe.com/anything")
+    assert config.allowed?("https://other.com/path")
+  end
+
+  def test_denylist_multiple_patterns
+    config = MQuickJS::HTTPConfig.new(
+      denylist: ["https://evil.com/**", "https://*.malware.net/**"]
+    )
+
+    refute config.allowed?("https://evil.com/anything")
+    refute config.allowed?("https://bad.malware.net/path")
+    assert config.allowed?("https://safe.com/anything")
+  end
+
+  def test_cannot_use_both_allowlist_and_denylist
+    error = assert_raises(MQuickJS::ArgumentError) do
+      MQuickJS::HTTPConfig.new(
+        allowlist: ["https://api.github.com/**"],
+        denylist: ["https://evil.com/**"]
+      )
+    end
+    assert_match(/Cannot specify both/, error.message)
+  end
+
+  def test_denylist_mode_predicate
+    allowlist_config = MQuickJS::HTTPConfig.new(allowlist: ["https://api.github.com/**"])
+    denylist_config = MQuickJS::HTTPConfig.new(denylist: ["https://evil.com/**"])
+
+    refute allowlist_config.denylist_mode?
+    assert denylist_config.denylist_mode?
+  end
+
   def test_port_validation
     config = MQuickJS::HTTPConfig.new(
-      whitelist: ["https://api.example.com/**"],
+      allowlist: ["https://api.example.com/**"],
       allowed_ports: [443]
     )
 
@@ -64,20 +126,31 @@ class TestHTTPConfig < Minitest::Test
     refute config.blocked_ip?("10.0.0.1")
   end
 
-  def test_validate_url_not_in_whitelist
+  def test_validate_url_not_in_allowlist
     config = MQuickJS::HTTPConfig.new(
-      whitelist: ["https://allowed.com/**"]
+      allowlist: ["https://allowed.com/**"]
     )
 
     error = assert_raises(MQuickJS::HTTPBlockedError) do
       config.validate_url!("https://evil.com/data")
     end
-    assert_match(/not in whitelist/, error.message)
+    assert_match(/not in allowlist/, error.message)
+  end
+
+  def test_validate_url_in_denylist
+    config = MQuickJS::HTTPConfig.new(
+      denylist: ["https://evil.com/**"]
+    )
+
+    error = assert_raises(MQuickJS::HTTPBlockedError) do
+      config.validate_url!("https://evil.com/data")
+    end
+    assert_match(/matches denylist/, error.message)
   end
 
   def test_validate_url_blocked_ip
     config = MQuickJS::HTTPConfig.new(
-      whitelist: ["http://localhost/**"],
+      allowlist: ["http://localhost/**"],
       block_private_ips: true
     )
 
@@ -123,21 +196,38 @@ class TestHTTPConfig < Minitest::Test
     assert_equal [443], config.allowed_ports
   end
 
-  def test_empty_whitelist_blocks_all
-    config = MQuickJS::HTTPConfig.new(whitelist: [])
+  def test_empty_allowlist_blocks_all
+    config = MQuickJS::HTTPConfig.new(allowlist: [])
+
+    refute config.allowed?("https://any.com/path")
+  end
+
+  def test_empty_denylist_blocks_all
+    config = MQuickJS::HTTPConfig.new(denylist: [])
 
     refute config.allowed?("https://any.com/path")
   end
 
   def test_subdomain_wildcard
     config = MQuickJS::HTTPConfig.new(
-      whitelist: ["https://*.example.com/api/*"]
+      allowlist: ["https://*.example.com/api/*"]
     )
 
     assert config.allowed?("https://api.example.com/api/users")
     assert config.allowed?("https://beta.example.com/api/data")
     refute config.allowed?("https://example.com/api/users")  # No subdomain
     refute config.allowed?("https://api.example.com/other")  # Wrong path
+  end
+
+  def test_subdomain_wildcard_denylist
+    config = MQuickJS::HTTPConfig.new(
+      denylist: ["https://*.evil.com/**"]
+    )
+
+    refute config.allowed?("https://api.evil.com/data")
+    refute config.allowed?("https://www.evil.com/path")
+    assert config.allowed?("https://evil.com/path")  # No subdomain, not blocked
+    assert config.allowed?("https://safe.com/path")
   end
 end
 

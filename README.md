@@ -58,7 +58,8 @@ Useful for evaluating user scripts, processing webhooks, executing templates, or
   - [Console Output Limits](#console-output-limits)
     - [Size Restriction](#size-restriction)
   - [HTTP Security](#http-security)
-    - [URL Whitelist](#url-whitelist)
+    - [URL Allowlist](#url-allowlist)
+    - [URL Denylist](#url-denylist)
     - [IP Address Blocking](#ip-address-blocking)
     - [Rate Limiting](#rate-limiting)
     - [Request Timeouts and Size Limits](#request-timeouts-and-size-limits)
@@ -105,7 +106,7 @@ Useful for evaluating user scripts, processing webhooks, executing templates, or
 - **CPU Timeout Enforcement** - Configurable execution time limits
 - **Sandboxed Execution** - Isolated from file system and network (within the JavaScript engine)
 - **Console Output Limits** - Prevent memory exhaustion via console.log
-- **HTTP Security Controls** - Whitelist, rate limiting, IP blocking
+- **HTTP Security Controls** - Allowlist/denylist, rate limiting, IP blocking
 - **No Dangerous APIs** - No eval(), no file I/O, no arbitrary code loading
 
 ### Production-Ready
@@ -326,7 +327,7 @@ require 'mquickjs'
 
 sandbox = MQuickJS::Sandbox.new(
   http: {
-    whitelist: ['https://api.github.com/**']
+    allowlist: ['https://api.github.com/**']
   }
 )
 
@@ -344,8 +345,11 @@ result.value  # => "octocat"
 ```ruby
 sandbox = MQuickJS::Sandbox.new(
   http: {
-    # URL whitelist (required for fetch to work)
-    whitelist: ['https://api.github.com/**', 'https://api.stripe.com/v1/**'],
+    # URL allowlist (only these patterns allowed) - use ONE of allowlist or denylist
+    allowlist: ['https://api.github.com/**', 'https://api.stripe.com/v1/**'],
+
+    # OR URL denylist (block these patterns, allow everything else)
+    # denylist: ['https://evil.com/**', 'https://*.malware.net/**'],
 
     # Security options
     block_private_ips: true,                    # Block private/local IPs (default: true)
@@ -681,12 +685,14 @@ puts result.console_output.length  # => ~100 bytes (truncated)
 
 MQuickJS provides comprehensive HTTP security controls through the `http:` configuration option:
 
-#### URL Whitelist
+#### URL Allowlist
+
+Use an allowlist when you want to restrict fetch to specific trusted APIs:
 
 ```ruby
 sandbox = MQuickJS::Sandbox.new(
   http: {
-    whitelist: [
+    allowlist: [
       'https://api.github.com/**',       # Allow GitHub API
       'https://api.example.com/public/**' # Allow specific endpoints
     ]
@@ -698,11 +704,36 @@ sandbox = MQuickJS::Sandbox.new(
 - Exact matches: `https://api.example.com/users`
 - Wildcards: `https://api.example.com/**`
 - Path patterns: `https://api.example.com/v*/users`
+- Subdomain patterns: `https://*.example.com/api/*`
 
 **Blocks:**
-- All non-whitelisted URLs
-- Protocol changes (http:// if only https:// whitelisted)
-- Subdomain variations
+- All non-allowed URLs
+- Protocol changes (http:// if only https:// allowed)
+- Subdomain variations (unless using wildcard)
+
+#### URL Denylist
+
+Use a denylist when you want to allow most URLs but block specific domains:
+
+```ruby
+sandbox = MQuickJS::Sandbox.new(
+  http: {
+    denylist: [
+      'https://evil.com/**',           # Block evil.com
+      'https://*.malware.net/**'       # Block all malware.net subdomains
+    ]
+  }
+)
+```
+
+**Behavior:**
+- All URLs are allowed EXCEPT those matching denylist patterns
+- Cannot be used together with allowlist (choose one)
+
+**Use cases:**
+- When you need broad internet access with specific exclusions
+- Blocking known malicious domains
+- Preventing access to competitor APIs
 
 #### IP Address Blocking
 
@@ -711,7 +742,7 @@ By default, private and local IP addresses are blocked:
 ```ruby
 sandbox = MQuickJS::Sandbox.new(
   http: {
-    whitelist: ['https://api.example.com/**'],
+    allowlist: ['https://api.example.com/**'],
     block_private_ips: true               # Block private IPs (default: true)
   }
 )
@@ -739,7 +770,7 @@ sandbox = MQuickJS::Sandbox.new(
 ```ruby
 sandbox = MQuickJS::Sandbox.new(
   http: {
-    whitelist: ['https://api.example.com/**'],
+    allowlist: ['https://api.example.com/**'],
     max_requests: 5    # Max requests per eval
   }
 )
@@ -760,7 +791,7 @@ sandbox = MQuickJS::Sandbox.new(
 ```ruby
 sandbox = MQuickJS::Sandbox.new(
   http: {
-    whitelist: ['https://api.example.com/**'],
+    allowlist: ['https://api.example.com/**'],
     request_timeout: 3000,        # 3 second timeout
     max_request_size: 100_000,    # 100KB max request body
     max_response_size: 500_000    # 500KB max response
@@ -776,13 +807,13 @@ sandbox = MQuickJS::Sandbox.new(
 #### Complete HTTP Security Example
 
 ```ruby
-# Production-grade HTTP security configuration
+# Production-grade HTTP security configuration (allowlist mode)
 sandbox = MQuickJS::Sandbox.new(
   memory_limit: 100_000,
   timeout_ms: 10_000,
   http: {
     # Only allow specific trusted APIs
-    whitelist: [
+    allowlist: [
       'https://api.github.com/**',
       'https://api.stripe.com/v1/**'
     ],
@@ -794,6 +825,16 @@ sandbox = MQuickJS::Sandbox.new(
 
     # Only allow GET and POST
     allowed_methods: ['GET', 'POST']
+  }
+)
+
+# Or use denylist mode to block specific domains
+sandbox_denylist = MQuickJS::Sandbox.new(
+  http: {
+    denylist: [
+      'https://evil.com/**',
+      'https://*.malware.net/**'
+    ]
   }
 )
 
@@ -1052,10 +1093,16 @@ Convenience method for one-shot JavaScript evaluation.
 ```ruby
 result = MQuickJS.eval("2 + 2", memory_limit: 10_000, timeout_ms: 1000)
 
-# With HTTP enabled
+# With HTTP enabled (allowlist mode)
 result = MQuickJS.eval(
   "fetch('https://api.example.com/data').body",
-  http: { whitelist: ['https://api.example.com/**'] }
+  http: { allowlist: ['https://api.example.com/**'] }
+)
+
+# With HTTP enabled (denylist mode)
+result = MQuickJS.eval(
+  "fetch('https://safe-api.com/data').body",
+  http: { denylist: ['https://evil.com/**'] }
 )
 ```
 
@@ -1076,7 +1123,12 @@ sandbox = MQuickJS::Sandbox.new(
   memory_limit: 100_000,
   timeout_ms: 2000,
   console_log_max_size: 20_000,
-  http: { whitelist: ['https://api.example.com/**'] }
+  http: { allowlist: ['https://api.example.com/**'] }
+)
+
+# Or with denylist
+sandbox = MQuickJS::Sandbox.new(
+  http: { denylist: ['https://evil.com/**', 'https://*.malware.net/**'] }
 )
 ```
 
@@ -1334,7 +1386,7 @@ docker run --rm --cap-drop=ALL --network=none \
 - Accidental infinite loops (via timeout)
 - Memory exhaustion (via memory limits)
 - Excessive console output
-- Basic SSRF attempts (via HTTP whitelist and IP blocking)
+- Basic SSRF attempts (via HTTP allowlist/denylist and IP blocking)
 
 **What this gem does NOT protect against:**
 - JavaScript engine vulnerabilities (RCE, sandbox escapes)

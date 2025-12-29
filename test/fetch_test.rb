@@ -404,7 +404,7 @@ class FetchHighLevelAPITest < Minitest::Test
   def test_sandbox_with_http_option_enables_fetch
     sandbox = MQuickJS::Sandbox.new(
       http: {
-        whitelist: ["https://example.com/**"],
+        allowlist: ["https://example.com/**"],
         block_private_ips: false
       }
     )
@@ -415,7 +415,7 @@ class FetchHighLevelAPITest < Minitest::Test
       sandbox.eval("fetch('https://blocked.com/data')")
     end
 
-    assert_match(/not in whitelist/i, error.message)
+    assert_match(/not in allowlist/i, error.message)
   end
 
   def test_sandbox_without_http_option_disables_fetch
@@ -428,10 +428,10 @@ class FetchHighLevelAPITest < Minitest::Test
     assert_match(/not enabled|callback not configured/i, error.message)
   end
 
-  def test_whitelist_blocks_non_whitelisted_urls
+  def test_allowlist_blocks_non_allowed_urls
     sandbox = MQuickJS::Sandbox.new(
       http: {
-        whitelist: ["https://api.github.com/**"],
+        allowlist: ["https://api.github.com/**"],
         block_private_ips: false
       }
     )
@@ -440,7 +440,40 @@ class FetchHighLevelAPITest < Minitest::Test
       sandbox.eval("fetch('https://evil.com/steal')")
     end
 
-    assert_match(/not in whitelist/i, error.message)
+    assert_match(/not in allowlist/i, error.message)
+  end
+
+  def test_denylist_blocks_denied_urls
+    sandbox = MQuickJS::Sandbox.new(
+      http: {
+        denylist: ["https://evil.com/**", "https://*.malware.net/**"],
+        block_private_ips: false
+      }
+    )
+
+    error = assert_raises(MQuickJS::HTTPBlockedError) do
+      sandbox.eval("fetch('https://evil.com/steal')")
+    end
+
+    assert_match(/matches denylist/i, error.message)
+  end
+
+  def test_denylist_with_subdomain_wildcard
+    sandbox = MQuickJS::Sandbox.new(
+      http: {
+        denylist: ["https://*.evil.com/**"],
+        block_private_ips: false
+      }
+    )
+
+    # Subdomains should be blocked
+    error = assert_raises(MQuickJS::HTTPBlockedError) do
+      sandbox.eval("fetch('https://api.evil.com/data')")
+    end
+    assert_match(/matches denylist/i, error.message)
+
+    # Root domain without subdomain is NOT blocked (pattern requires subdomain)
+    # This would make an actual HTTP request in real tests
   end
 
   def test_mquickjs_eval_with_http_option
@@ -448,10 +481,10 @@ class FetchHighLevelAPITest < Minitest::Test
     error = assert_raises(MQuickJS::HTTPBlockedError) do
       MQuickJS.eval(
         "fetch('https://blocked.com/data')",
-        http: { whitelist: ["https://allowed.com/**"] }
+        http: { allowlist: ["https://allowed.com/**"] }
       )
     end
 
-    assert_match(/not in whitelist/i, error.message)
+    assert_match(/not in allowlist/i, error.message)
   end
 end

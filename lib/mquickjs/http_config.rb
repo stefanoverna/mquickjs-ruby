@@ -25,12 +25,13 @@ module MQuickJS
       "169.254.169.254/32"   # AWS/GCP/Azure metadata
     ].map { |cidr| IPAddr.new(cidr) }.freeze
 
-    attr_reader :whitelist, :max_requests, :request_timeout,
+    attr_reader :allowlist, :denylist, :max_requests, :request_timeout,
                 :max_request_size, :max_response_size, :allowed_methods,
                 :block_private_ips, :allowed_ports
 
     def initialize(options = {})
-      @whitelist = compile_patterns(options[:whitelist] || [])
+      @allowlist = compile_patterns(options[:allowlist] || [])
+      @denylist = compile_patterns(options[:denylist] || [])
       @max_requests = options[:max_requests] || DEFAULT_MAX_REQUESTS
       @request_timeout = options[:request_timeout] || DEFAULT_REQUEST_TIMEOUT
       @max_request_size = options[:max_request_size] || DEFAULT_MAX_REQUEST_SIZE
@@ -38,11 +39,14 @@ module MQuickJS
       @allowed_methods = options[:allowed_methods] || DEFAULT_ALLOWED_METHODS
       @block_private_ips = options.fetch(:block_private_ips, true)
       @allowed_ports = options[:allowed_ports] || DEFAULT_ALLOWED_PORTS
+
+      validate_list_configuration!
     end
 
-    # Check if a URL is allowed by the whitelist
+    # Check if a URL is allowed by the allowlist/denylist
     def allowed?(url)
-      return false if @whitelist.empty?
+      # Must have either allowlist or denylist configured
+      return false if @allowlist.empty? && @denylist.empty?
 
       uri = URI.parse(url)
 
@@ -50,8 +54,13 @@ module MQuickJS
       port = uri.port || (uri.scheme == "https" ? 443 : 80)
       return false if @allowed_ports && !@allowed_ports.include?(port)
 
-      # Check against whitelist patterns
-      @whitelist.any? { |pattern| pattern.match?(url) }
+      if @denylist.any?
+        # Denylist mode: allow everything EXCEPT denied patterns
+        !@denylist.any? { |pattern| pattern.match?(url) }
+      else
+        # Allowlist mode: only allow matching patterns
+        @allowlist.any? { |pattern| pattern.match?(url) }
+      end
     rescue URI::InvalidURIError
       false
     end
@@ -80,11 +89,22 @@ module MQuickJS
       # Only allow http/https
       raise HTTPBlockedError, "URL scheme '#{uri.scheme}' not allowed" unless %w[http https].include?(uri.scheme)
 
-      # Check whitelist
-      raise HTTPBlockedError, "URL not in whitelist: #{url}" unless allowed?(url)
+      # Check allowlist/denylist
+      unless allowed?(url)
+        if denylist_mode?
+          raise HTTPBlockedError, "URL matches denylist: #{url}"
+        else
+          raise HTTPBlockedError, "URL not in allowlist: #{url}"
+        end
+      end
 
       # Check if host resolves to blocked IP
       raise HTTPBlockedError, "URL resolves to blocked IP address: #{url}" if blocked_ip?(uri.host)
+    end
+
+    # Check if using denylist mode
+    def denylist_mode?
+      @denylist.any?
     end
 
     # Validate HTTP method
@@ -96,6 +116,13 @@ module MQuickJS
     end
 
     private
+
+    # Validate that allowlist and denylist are not used together
+    def validate_list_configuration!
+      return unless @allowlist.any? && @denylist.any?
+
+      raise ArgumentError, "Cannot specify both allowlist and denylist. Use one or the other."
+    end
 
     # Compile glob patterns to regex
     def compile_patterns(patterns)

@@ -30,7 +30,7 @@ module MQuickJS
   # Raised when execution timeout is exceeded
   class TimeoutError < Error; end
 
-  # Raised when HTTP request is blocked by whitelist
+  # Raised when HTTP request is blocked by allowlist/denylist
   class HTTPBlockedError < Error; end
 
   # Raised when HTTP request limit is exceeded

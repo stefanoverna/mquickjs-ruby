@@ -13,7 +13,8 @@ module MQuickJS
     # @param console_log_max_size [Integer] Console output limit in bytes (default: 10,000)
     # @param http [Hash, nil] HTTP configuration options (enables fetch() in JavaScript)
     #
-    # @option http [Array<String>] :whitelist URL patterns to allow (e.g., ['https://api.github.com/**'])
+    # @option http [Array<String>] :allowlist URL patterns to allow (e.g., ['https://api.github.com/**'])
+    # @option http [Array<String>] :denylist URL patterns to block (allows all others)
     # @option http [Integer] :max_requests Maximum requests per eval (default: 10)
     # @option http [Integer] :request_timeout Request timeout in ms (default: 5000)
     # @option http [Integer] :max_request_size Maximum request body size (default: 1MB)
@@ -27,14 +28,22 @@ module MQuickJS
     #   result = sandbox.eval("2 + 2")
     #   result.value  # => 4
     #
-    # @example With HTTP enabled
+    # @example With HTTP enabled (allowlist mode)
     #   sandbox = MQuickJS::Sandbox.new(
     #     http: {
-    #       whitelist: ['https://api.github.com/**'],
+    #       allowlist: ['https://api.github.com/**'],
     #       max_requests: 5
     #     }
     #   )
     #   result = sandbox.eval("fetch('https://api.github.com/users/octocat').body")
+    #
+    # @example With HTTP enabled (denylist mode - allow all except blocked)
+    #   sandbox = MQuickJS::Sandbox.new(
+    #     http: {
+    #       denylist: ['https://evil.com/**', 'https://*.malware.net/**']
+    #     }
+    #   )
+    #   result = sandbox.eval("fetch('https://safe-api.com/data').body")
     #
     def initialize(memory_limit: 50_000, timeout_ms: 5000, console_log_max_size: 10_000, http: nil)
       @native_sandbox = NativeSandbox.new(
