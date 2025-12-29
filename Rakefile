@@ -2,6 +2,7 @@
 
 require 'rake/extensiontask'
 require 'rake/testtask'
+require 'rubocop/rake_task'
 
 # Build the native extension
 Rake::ExtensionTask.new('mquickjs_native') do |ext|
@@ -17,6 +18,9 @@ Rake::TestTask.new(:test) do |t|
   # Disable automatic plugin loading to avoid conflicts with globally installed gems
   t.options = '--no-plugins'
 end
+
+# RuboCop task
+RuboCop::RakeTask.new
 
 # Clean task
 task :clean do
