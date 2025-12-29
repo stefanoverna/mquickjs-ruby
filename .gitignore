@@ -7,5 +7,7 @@ ext/mquickjs/mkmf.log
 ext/mquickjs/backup_*/
 ext/mquickjs/mquickjs_atom.h
 ext/mquickjs/mqjs_stdlib.h
+ext/mquickjs/*.bundle
+ext/mquickjs/.sitearchdir.*
 lib/mquickjs/mquickjs_native.bundle
 Gemfile.lock
