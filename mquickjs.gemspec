@@ -5,8 +5,8 @@ require_relative 'lib/mquickjs/version'
 Gem::Specification.new do |spec|
   spec.name          = 'mquickjs'
   spec.version       = MQuickJS::VERSION
-  spec.authors       = ['Your Name']
-  spec.email         = ['your.email@example.com']
+  spec.authors       = ['Stefano Veran']
+  spec.email         = ['s.verna@datocms.com']
 
   spec.summary       = 'Secure JavaScript sandbox for Ruby using MicroQuickJS'
   spec.description   = <<~DESC
@@ -18,7 +18,7 @@ Gem::Specification.new do |spec|
     user scripts, process webhooks, execute templates, or build plugin systems without
     compromising your application's security.
   DESC
-  spec.homepage      = 'https://github.com/yourusername/mquickjs-ruby'
+  spec.homepage      = 'https://github.com/stefanoverna/mquickjs-ruby'
   spec.license       = 'MIT'
   spec.required_ruby_version = '>= 2.7.0'
 
@@ -40,14 +40,9 @@ Gem::Specification.new do |spec|
 
   spec.require_paths = ['lib']
   spec.extensions = ['ext/mquickjs/extconf.rb']
-
-  # Runtime dependencies
-  # None - pure Ruby + C extension
-
-  # Development dependencies
   spec.add_development_dependency 'bundler', '~> 2.0'
-  spec.add_development_dependency 'rake', '~> 13.0'
-  spec.add_development_dependency 'rake-compiler', '~> 1.2'
   spec.add_development_dependency 'minitest', '~> 5.0'
   spec.add_development_dependency 'minitest-reporters', '~> 1.5'
+  spec.add_development_dependency 'rake', '~> 13.0'
+  spec.add_development_dependency 'rake-compiler', '~> 1.2'
 end
