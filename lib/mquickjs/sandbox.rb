@@ -49,9 +49,7 @@ module MQuickJS
       # The C code requires memory_limit >= 1024 bytes, but in practice the JavaScript
       # standard library initialization requires approximately 10KB. Using a value less
       # than this will cause the sandbox to fail during initialization.
-      if memory_limit < 10_000
-        raise ArgumentError, "memory_limit cannot be less than 10000 bytes (got #{memory_limit})"
-      end
+      raise ArgumentError, "memory_limit cannot be less than 10000 bytes (got #{memory_limit})" if memory_limit < 10_000
 
       @native_sandbox = NativeSandbox.new(
         memory_limit: memory_limit,
