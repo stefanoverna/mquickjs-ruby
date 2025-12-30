@@ -487,4 +487,31 @@ class FetchHighLevelAPITest < Minitest::Test
 
     assert_match(/not in allowlist/i, error.message)
   end
+
+  def test_denylist_with_protocol_wildcard_and_subdomain
+    sandbox = MQuickJS::Sandbox.new(
+      http: {
+        denylist: ["**://*.datocms.com/**"],
+        block_private_ips: false
+      }
+    )
+
+    # Should block https://site-api.datocms.com/test
+    error = assert_raises(MQuickJS::HTTPBlockedError) do
+      sandbox.eval("fetch('https://site-api.datocms.com/test')")
+    end
+    assert_match(/matches denylist/i, error.message)
+
+    # Should also block http variant
+    error = assert_raises(MQuickJS::HTTPBlockedError) do
+      sandbox.eval("fetch('http://site-api.datocms.com/test')")
+    end
+    assert_match(/matches denylist/i, error.message)
+
+    # Should also block other subdomains
+    error = assert_raises(MQuickJS::HTTPBlockedError) do
+      sandbox.eval("fetch('https://api.datocms.com/foo')")
+    end
+    assert_match(/matches denylist/i, error.message)
+  end
 end

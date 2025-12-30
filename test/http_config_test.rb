@@ -229,6 +229,24 @@ class TestHTTPConfig < Minitest::Test
     assert config.allowed?("https://evil.com/path") # No subdomain, not blocked
     assert config.allowed?("https://safe.com/path")
   end
+
+  def test_protocol_and_subdomain_wildcard_denylist
+    config = MQuickJS::HTTPConfig.new(
+      denylist: ["**://*.datocms.com/**"]
+    )
+
+    # Should block both http and https with any subdomain
+    refute config.allowed?("https://site-api.datocms.com/test")
+    refute config.allowed?("http://site-api.datocms.com/test")
+    refute config.allowed?("https://api.datocms.com/foo")
+    refute config.allowed?("http://www.datocms.com/bar")
+
+    # Should NOT block URLs without subdomain (pattern has *.datocms.com)
+    assert config.allowed?("https://datocms.com/test")
+
+    # Should NOT block other domains
+    assert config.allowed?("https://example.com/test")
+  end
 end
 
 puts "Running HTTP configuration tests..."

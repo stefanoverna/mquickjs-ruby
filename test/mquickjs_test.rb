@@ -277,6 +277,3 @@ class TestMQuickJS < Minitest::Test
     refute_predicate result, :console_truncated?
   end
 end
-
-# Run the tests
-puts "Running MQuickJS FFI tests..."
