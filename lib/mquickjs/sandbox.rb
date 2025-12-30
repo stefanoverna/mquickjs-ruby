@@ -46,6 +46,13 @@ module MQuickJS
     #   result = sandbox.eval("fetch('https://safe-api.com/data').body")
     #
     def initialize(memory_limit: 50_000, timeout_ms: 5000, console_log_max_size: 10_000, http: nil)
+      # The C code requires memory_limit >= 1024 bytes, but in practice the JavaScript
+      # standard library initialization requires approximately 10KB. Using a value less
+      # than this will cause the sandbox to fail during initialization.
+      if memory_limit < 10_000
+        raise ArgumentError, "memory_limit cannot be less than 10000 bytes (got #{memory_limit})"
+      end
+
       @native_sandbox = NativeSandbox.new(
         memory_limit: memory_limit,
         timeout_ms: timeout_ms,

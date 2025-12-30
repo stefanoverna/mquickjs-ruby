@@ -265,9 +265,19 @@ Variables persist across `eval()` calls in the same sandbox. See [test/set_varia
 ```ruby
 # Configure resource limits
 sandbox = MQuickJS::Sandbox.new(
-  memory_limit: 50_000,  # Bytes - default: 50,000 (50KB)
+  memory_limit: 50_000,  # Bytes - default: 50,000 (50KB), minimum: 10,000 (10KB)
   timeout_ms: 5000       # Milliseconds - default: 5,000 (5 seconds)
 )
+
+# Note: memory_limit must be at least 10,000 bytes (10KB) for JavaScript stdlib initialization
+# Values below this will raise an ArgumentError
+
+# Memory limit validation
+begin
+  MQuickJS::Sandbox.new(memory_limit: 5000)  # Too small
+rescue MQuickJS::ArgumentError => e
+  puts "Invalid memory limit: #{e.message}"
+end
 
 # Memory limit exceeded
 begin
@@ -1112,10 +1122,13 @@ Create a reusable JavaScript sandbox.
 
 **Parameters:**
 - `options` (Hash, optional):
-  - `:memory_limit` (Integer): Memory limit in bytes (default: 50,000)
+  - `:memory_limit` (Integer): Memory limit in bytes (default: 50,000, minimum: 10,000)
   - `:timeout_ms` (Integer): Timeout in milliseconds (default: 5,000)
   - `:console_log_max_size` (Integer): Console output limit (default: 10,000)
   - `:http` (Hash): HTTP configuration to enable fetch() (see [HTTP Requests](#http-requests))
+
+**Raises:**
+- `MQuickJS::ArgumentError`: If memory_limit is less than 10,000 bytes
 
 **Example:**
 ```ruby

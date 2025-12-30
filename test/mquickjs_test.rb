@@ -96,6 +96,25 @@ class TestMQuickJS < Minitest::Test
     end
   end
 
+  def test_memory_limit_validation
+    # memory_limit cannot be less than 10000 bytes (required for stdlib initialization)
+    error = assert_raises(MQuickJS::ArgumentError) do
+      MQuickJS::Sandbox.new(memory_limit: 5000)
+    end
+    assert_match(/memory_limit cannot be less than 10000/i, error.message)
+    assert_match(/5000/, error.message)
+
+    # Should work with exactly 10000
+    sandbox = MQuickJS::Sandbox.new(memory_limit: 10_000)
+    result = sandbox.eval("2 + 2")
+    assert_equal 4, result.value
+
+    # Should work with more than 10000
+    sandbox = MQuickJS::Sandbox.new(memory_limit: 20_000)
+    result = sandbox.eval("2 + 2")
+    assert_equal 4, result.value
+  end
+
   def test_reusable_sandbox
     sandbox = MQuickJS::Sandbox.new
 
