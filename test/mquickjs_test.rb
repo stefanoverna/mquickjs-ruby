@@ -107,11 +107,13 @@ class TestMQuickJS < Minitest::Test
     # Should work with exactly 10000
     sandbox = MQuickJS::Sandbox.new(memory_limit: 10_000)
     result = sandbox.eval("2 + 2")
+
     assert_equal 4, result.value
 
     # Should work with more than 10000
     sandbox = MQuickJS::Sandbox.new(memory_limit: 20_000)
     result = sandbox.eval("2 + 2")
+
     assert_equal 4, result.value
   end
 
