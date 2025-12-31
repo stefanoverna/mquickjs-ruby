@@ -37,3 +37,9 @@ Layout/LineLength:
   Max: 120
   Exclude:
     - "mquickjs.gemspec"
+
+# Exception classes use positional arguments because the C extension
+# calls rb_class_new_instance with positional arguments
+Style/OptionalBooleanParameter:
+  Exclude:
+    - "lib/mquickjs/errors.rb"
