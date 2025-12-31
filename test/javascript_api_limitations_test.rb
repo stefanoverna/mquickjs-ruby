@@ -619,7 +619,87 @@ class TestJavaScriptAPILimitations < Minitest::Test
   end
 
   # ============================================================================
-  # SECTION 20: WORKAROUNDS FOR COMMON PATTERNS
+  # SECTION 20: DATE TIMESTAMP COMPARISONS
+  # ============================================================================
+  # While Date objects can't be created, Date.now() returns numbers that can
+  # be compared and used for elapsed time calculations.
+
+  def test_date_now_returns_comparable_number
+    result = @sandbox.eval("var t1 = Date.now(); var t2 = Date.now(); t2 >= t1")
+    assert result.value
+  end
+
+  def test_date_now_elapsed_time
+    result = @sandbox.eval("var start = Date.now(); var i = 0; while (i < 100) i++; var end = Date.now(); end >= start")
+    assert result.value
+  end
+
+  def test_date_parse_not_available
+    result = @sandbox.eval("typeof Date.parse")
+    assert_equal "undefined", result.value
+  end
+
+  def test_date_utc_not_available
+    result = @sandbox.eval("typeof Date.UTC")
+    assert_equal "undefined", result.value
+  end
+
+  # ============================================================================
+  # SECTION 21: EXPONENTIATION OPERATOR
+  # ============================================================================
+  # The ** operator is supported (ES2016 feature that works here)
+
+  def test_exponentiation_operator_works
+    assert_equal 8, @sandbox.eval("2 ** 3").value
+    assert_equal 1024, @sandbox.eval("2 ** 10").value
+    assert_equal 1, @sandbox.eval("5 ** 0").value
+  end
+
+  # ============================================================================
+  # SECTION 22: FOR...IN BEHAVIOR (OWN PROPERTIES ONLY)
+  # ============================================================================
+  # IMPORTANT: Unlike standard JavaScript, for...in only iterates over
+  # own properties, NOT inherited properties from the prototype chain.
+
+  def test_for_in_only_iterates_own_properties
+    # In standard JS, this would also include inherited properties
+    code = <<~JS
+      function Parent() { this.inherited = 1; }
+      Parent.prototype.protoProperty = 2;
+      function Child() { this.ownProperty = 3; }
+      Child.prototype = new Parent();
+      var obj = new Child();
+      var keys = [];
+      for (var k in obj) keys.push(k);
+      keys;
+    JS
+    result = @sandbox.eval(code)
+    # Only gets own property, not inherited ones
+    assert_equal ["ownProperty"], result.value
+  end
+
+  def test_for_in_with_simple_object
+    result = @sandbox.eval("var keys = []; for (var k in {a: 1, b: 2}) keys.push(k); keys.sort()")
+    assert_equal %w[a b], result.value
+  end
+
+  # ============================================================================
+  # SECTION 23: UNICODE ESCAPE SYNTAX
+  # ============================================================================
+  # The \u{hex} syntax for unicode code points is supported
+
+  def test_unicode_escape_syntax_works
+    # Standard \uXXXX works
+    result = @sandbox.eval('"\\u0041"')
+    assert_equal "A", result.value
+
+    # Extended \u{XXXXX} syntax also works
+    result = @sandbox.eval('"\\u{1F600}"')
+    assert_equal "\u{1F600}", result.value
+  end
+
+  # ============================================================================
+  # SECTION 24: WORKAROUNDS FOR COMMON PATTERNS
   # ============================================================================
   # These tests document recommended workarounds for missing features
 

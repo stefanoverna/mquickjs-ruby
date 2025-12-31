@@ -61,6 +61,8 @@ MQuickJS uses MicroQuickJS, an extremely minimal JavaScript engine. Key limitati
 
 ### Date
 - **Only `Date.now()` works** - no Date constructor, no instance methods
+- `Date.parse()` and `Date.UTC()` are not available
+- Timestamp comparisons work (compare numbers from `Date.now()`)
 
 ### ES6+ Syntax Not Supported
 - No `let`/`const` (use `var`)
@@ -89,9 +91,18 @@ MQuickJS uses MicroQuickJS, an extremely minimal JavaScript engine. Key limitati
 ### Global Functions
 - Missing: encodeURI, decodeURI, encodeURIComponent, decodeURIComponent, btoa, atob
 
+### Iteration Differences
+- `for...of` only works with arrays, not strings or custom iterables
+- **`for...in` only iterates own properties** - does NOT include inherited prototype properties (unlike standard JS)
+
 ### Strict Mode
 - Always enforced - undeclared variables throw ReferenceError
 - `with` statement not supported
 - Value boxing not supported (`new Number`, `new String`, `new Boolean`)
+- Only indirect `eval` works - direct `eval` cannot access local variables
+
+### Working ES6+ Features
+- Exponentiation operator `**` works (e.g., `2 ** 10`)
+- Unicode escape syntax `\u{XXXXX}` works
 
 See `test/javascript_api_limitations_test.rb` for comprehensive documentation with examples.
