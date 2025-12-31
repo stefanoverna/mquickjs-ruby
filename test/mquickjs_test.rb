@@ -297,4 +297,74 @@ class TestMQuickJS < Minitest::Test
     assert_equal "", result.console_output
     refute_predicate result, :console_truncated?
   end
+
+  # Tests for console output in exceptions
+
+  def test_javascript_error_includes_console_output
+    error = assert_raises(MQuickJS::JavaScriptError) do
+      MQuickJS.eval("console.log('before error'); console.log('step 2'); throw new Error('test error')")
+    end
+    assert_match(/Error/, error.message)
+    assert_equal "before error\nstep 2\n", error.console_output
+    refute_predicate error, :console_truncated?
+  end
+
+  def test_javascript_error_empty_console_output
+    error = assert_raises(MQuickJS::JavaScriptError) do
+      MQuickJS.eval("throw new Error('test error')")
+    end
+    assert_match(/Error/, error.message)
+    assert_equal "", error.console_output
+    refute_predicate error, :console_truncated?
+  end
+
+  def test_syntax_error_includes_console_output
+    # Syntax errors are detected during parsing, so no console output should be captured
+    error = assert_raises(MQuickJS::SyntaxError) do
+      MQuickJS.eval("var x = ")
+    end
+    assert_match(/SyntaxError/, error.message)
+    assert_equal "", error.console_output
+    refute_predicate error, :console_truncated?
+  end
+
+  def test_timeout_error_includes_console_output
+    error = assert_raises(MQuickJS::TimeoutError) do
+      MQuickJS.eval("console.log('starting'); console.log('looping'); while(true) {}", timeout_ms: 100)
+    end
+    assert_match(/timeout/i, error.message)
+    assert_equal "starting\nlooping\n", error.console_output
+    refute_predicate error, :console_truncated?
+  end
+
+  def test_timeout_error_empty_console_output
+    error = assert_raises(MQuickJS::TimeoutError) do
+      MQuickJS.eval("while(true) {}", timeout_ms: 100)
+    end
+    assert_match(/timeout/i, error.message)
+    assert_equal "", error.console_output
+    refute_predicate error, :console_truncated?
+  end
+
+  def test_javascript_error_with_truncated_console_output
+    sandbox = MQuickJS::Sandbox.new(console_log_max_size: 50)
+    error = assert_raises(MQuickJS::JavaScriptError) do
+      # Generate more than 50 bytes of console output before error
+      sandbox.eval("for(var i = 0; i < 10; i++) console.log('line ' + i); throw new Error('test')")
+    end
+    assert_match(/Error/, error.message)
+    assert_operator error.console_output.bytesize, :<=, 50
+    assert_predicate error, :console_truncated?
+  end
+
+  def test_timeout_error_with_truncated_console_output
+    sandbox = MQuickJS::Sandbox.new(timeout_ms: 100, console_log_max_size: 50)
+    error = assert_raises(MQuickJS::TimeoutError) do
+      # Generate console output that exceeds limit, then loop forever
+      sandbox.eval("for(var i = 0; i < 20; i++) console.log('line ' + i); while(true) {}")
+    end
+    assert_match(/timeout/i, error.message)
+    assert_operator error.console_output.bytesize, :<=, 50
+    assert_predicate error, :console_truncated?
+  end
 end

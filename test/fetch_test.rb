@@ -514,4 +514,44 @@ class FetchHighLevelAPITest < Minitest::Test
     end
     assert_match(/matches denylist/i, error.message)
   end
+
+  # Tests for console output in HTTP exceptions
+
+  def test_http_blocked_error_includes_console_output
+    sandbox = MQuickJS::Sandbox.new(
+      http: { allowlist: ["https://allowed.example.com/**"] }
+    )
+    error = assert_raises(MQuickJS::HTTPBlockedError) do
+      sandbox.eval("console.log('before fetch'); console.log('fetching...'); fetch('https://blocked.example.com/api')")
+    end
+    assert_match(/not in allowlist/i, error.message)
+    assert_equal "before fetch\nfetching...\n", error.console_output
+    refute_predicate error, :console_truncated?
+  end
+
+  def test_http_blocked_error_empty_console_output
+    sandbox = MQuickJS::Sandbox.new(
+      http: { allowlist: ["https://allowed.example.com/**"] }
+    )
+    error = assert_raises(MQuickJS::HTTPBlockedError) do
+      sandbox.eval("fetch('https://blocked.example.com/api')")
+    end
+    assert_match(/not in allowlist/i, error.message)
+    assert_equal "", error.console_output
+    refute_predicate error, :console_truncated?
+  end
+
+  def test_http_blocked_error_with_truncated_console_output
+    sandbox = MQuickJS::Sandbox.new(
+      console_log_max_size: 50,
+      http: { allowlist: ["https://allowed.example.com/**"] }
+    )
+    error = assert_raises(MQuickJS::HTTPBlockedError) do
+      # Generate more than 50 bytes of console output before fetch
+      sandbox.eval("for(var i = 0; i < 10; i++) console.log('line ' + i); fetch('https://blocked.example.com/api')")
+    end
+    assert_match(/not in allowlist/i, error.message)
+    assert_operator error.console_output.bytesize, :<=, 50
+    assert_predicate error, :console_truncated?
+  end
 end

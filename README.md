@@ -923,6 +923,8 @@ Raised when JavaScript code contains a syntax error.
 
 - `message` (String): The full error message, prefixed with `SyntaxError:` and a description
 - `stack` (String): Location info showing where the syntax error occurred (line and column)
+- `console_output` (String): Any console.log output captured before the error (typically empty for syntax errors since they occur at parse time)
+- `console_truncated?` (Boolean): Whether console output was truncated due to size limits
 
 ```ruby
 begin
@@ -933,6 +935,9 @@ rescue MQuickJS::SyntaxError => e
 
   puts e.stack
   # => "    at <eval>:3:20\n"
+
+  puts e.console_output
+  # => "" (syntax errors occur at parse time, before execution)
 end
 ```
 
@@ -965,11 +970,15 @@ Raised when JavaScript code throws an error at runtime. This includes explicit `
 
 - `message` (String): The full error message, including the error type and description
 - `stack` (String): JavaScript stack trace showing the call chain with function names and line numbers
+- `console_output` (String): Any console.log output captured before the error occurred
+- `console_truncated?` (Boolean): Whether console output was truncated due to size limits
 
 ```ruby
 begin
   sandbox.eval(<<~JS)
+    console.log("Processing user...");
     function processUser(user) {
+      console.log("User received:", user);
       return user.name.toUpperCase();
     }
     processUser(null);  // Will throw TypeError
@@ -979,7 +988,11 @@ rescue MQuickJS::JavaScriptError => e
   # => "TypeError: cannot read property 'name' of null"
 
   puts e.stack
-  # => "    at processUser (<eval>:2:19)\n    at <eval> (<eval>:4:4)\n"
+  # => "    at processUser (<eval>:4:19)\n    at <eval> (<eval>:6:4)\n"
+
+  puts e.console_output
+  # => "Processing user...\nUser received: null\n"
+  # Useful for debugging what happened before the error!
 end
 ```
 
@@ -1083,6 +1096,92 @@ rescue MQuickJS::JavaScriptError => e
   # => "TypeError: age must be a number, got string"
 end
 ```
+
+#### MQuickJS::TimeoutError
+
+Raised when JavaScript execution exceeds the configured timeout.
+
+**Attributes:**
+
+- `message` (String): The timeout error message
+- `console_output` (String): Any console.log output captured before the timeout
+- `console_truncated?` (Boolean): Whether console output was truncated due to size limits
+
+```ruby
+begin
+  sandbox.eval(<<~JS)
+    console.log("Starting long computation...");
+    console.log("This might take a while...");
+    while(true) {}  // Infinite loop
+  JS
+rescue MQuickJS::TimeoutError => e
+  puts e.message
+  # => "JavaScript execution timeout exceeded"
+
+  puts e.console_output
+  # => "Starting long computation...\nThis might take a while...\n"
+  # See what the script was doing before it timed out
+end
+```
+
+#### MQuickJS::MemoryLimitError
+
+Raised when JavaScript execution exceeds the configured memory limit.
+
+**Attributes:**
+
+- `message` (String): The memory limit error message
+- `console_output` (String): Any console.log output captured before memory was exhausted
+- `console_truncated?` (Boolean): Whether console output was truncated due to size limits
+
+#### MQuickJS::HTTPBlockedError
+
+Raised when a fetch() request is blocked by the URL allowlist/denylist configuration.
+
+**Attributes:**
+
+- `message` (String): Description of why the request was blocked
+- `console_output` (String): Any console.log output captured before the blocked request
+- `console_truncated?` (Boolean): Whether console output was truncated due to size limits
+
+```ruby
+sandbox = MQuickJS::Sandbox.new(
+  http: { allowlist: ['https://api.example.com/**'] }
+)
+
+begin
+  sandbox.eval(<<~JS)
+    console.log("Fetching data from external API...");
+    fetch('https://blocked-domain.com/api');
+  JS
+rescue MQuickJS::HTTPBlockedError => e
+  puts e.message
+  # => "URL not in allowlist: https://blocked-domain.com/api"
+
+  puts e.console_output
+  # => "Fetching data from external API...\n"
+end
+```
+
+#### MQuickJS::HTTPLimitError
+
+Raised when HTTP request limits are exceeded (max requests, request size, or response size).
+
+**Attributes:**
+
+- `message` (String): Description of which limit was exceeded
+- `console_output` (String): Any console.log output captured before the limit was hit
+- `console_truncated?` (Boolean): Whether console output was truncated due to size limits
+
+#### MQuickJS::HTTPError
+
+Raised when an HTTP request fails (network error, timeout, etc.).
+
+**Attributes:**
+
+- `message` (String): Description of the HTTP failure
+- `console_output` (String): Any console.log output captured before the failure
+- `console_truncated?` (Boolean): Whether console output was truncated due to size limits
 
 ## API Reference
 

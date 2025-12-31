@@ -189,6 +189,50 @@ static JSValue js_clearTimeout(JSContext *ctx, JSValue *this_val, int argc, JSVa
     return JS_ThrowError(ctx, JS_CLASS_ERROR, "clearTimeout() is disabled in sandbox mode");
 }
 
+// HTTP error classes (initialized in Init_mquickjs_native)
+static VALUE rb_eMQuickJSHTTPBlockedError;
+static VALUE rb_eMQuickJSHTTPLimitError;
+static VALUE rb_eMQuickJSHTTPError;
+
+// Helper struct for protected HTTP callback
+struct http_callback_args {
+    VALUE callback;
+    VALUE method;
+    VALUE url;
+    VALUE body;
+    VALUE headers;
+};
+
+// Protected callback function
+static VALUE http_callback_wrapper(VALUE arg) {
+    struct http_callback_args *args = (struct http_callback_args *)arg;
+    return rb_funcall(args->callback, rb_intern("call"), 4,
+                      args->method, args->url, args->body, args->headers);
+}
+
+// Re-raise HTTP exception with console output
+static void reraise_http_error_with_console(ContextWrapper *wrapper, VALUE exception) {
+    VALUE exc_class = rb_obj_class(exception);
+    VALUE message = rb_funcall(exception, rb_intern("message"), 0);
+
+    // Create console output strings
+    VALUE console_output = rb_str_new(wrapper->console_output, wrapper->console_output_len);
+    VALUE console_truncated = wrapper->console_truncated ? Qtrue : Qfalse;
+
+    // Check if this is one of our HTTP error classes
+    if (exc_class == rb_eMQuickJSHTTPBlockedError ||
+        exc_class == rb_eMQuickJSHTTPLimitError ||
+        exc_class == rb_eMQuickJSHTTPError) {
+        // Create new exception with console output
+        VALUE argv[3] = { message, console_output, console_truncated };
+        VALUE new_exception = rb_class_new_instance(3, argv, exc_class);
+        rb_exc_raise(new_exception);
+    } else {
+        // Re-raise original exception
+        rb_exc_raise(exception);
+    }
+}
+
 // fetch() implementation
 static JSValue js_fetch(JSContext *ctx, JSValue *this_val, int argc, JSValue *argv) {
     ContextWrapper *wrapper = current_wrapper;
@@ -239,14 +283,30 @@ static JSValue js_fetch(JSContext *ctx, JSValue *this_val, int argc, JSValue *ar
         // JSValue headers_val = JS_GetPropertyStr(ctx, argv[1], "headers");
     }
 
-    // Call Ruby HTTP executor
+    // Call Ruby HTTP executor with exception protection
     VALUE rb_url = rb_str_new2(url);
     VALUE rb_method = rb_str_new2(method);
     VALUE rb_body = body ? rb_str_new2(body) : Qnil;
 
-    // Call the Ruby callback: http_callback.call(method, url, body, headers)
-    VALUE rb_response = rb_funcall(wrapper->rb_http_callback, rb_intern("call"), 4,
-                                     rb_method, rb_url, rb_body, rb_headers);
+    struct http_callback_args args = {
+        .callback = wrapper->rb_http_callback,
+        .method = rb_method,
+        .url = rb_url,
+        .body = rb_body,
+        .headers = rb_headers
+    };
+
+    int state = 0;
+    VALUE rb_response = rb_protect(http_callback_wrapper, (VALUE)&args, &state);
+
+    // Check if an exception was raised
+    if (state) {
+        VALUE exception = rb_errinfo();
+        rb_set_errinfo(Qnil);  // Clear the error
+        reraise_http_error_with_console(wrapper, exception);
+        // This line is never reached, but we need to return something
+        return JS_EXCEPTION;
+    }
 
     // Extract response fields from Ruby hash
     VALUE rb_status = rb_hash_aref(rb_response, ID2SYM(rb_intern("status")));
@@ -719,7 +779,18 @@ static VALUE sandbox_eval(VALUE self, VALUE code_str) {
 
     // Check for timeout
     if (wrapper->timed_out) {
-        rb_raise(rb_eMQuickJSTimeoutError, "JavaScript execution timeout exceeded");
+        // Create console output strings before raising
+        VALUE console_output = rb_str_new(wrapper->console_output, wrapper->console_output_len);
+        VALUE console_truncated = wrapper->console_truncated ? Qtrue : Qfalse;
+
+        // Create timeout error with console output
+        VALUE timeout_argv[3] = {
+            rb_str_new_cstr("JavaScript execution timeout exceeded"),
+            console_output,
+            console_truncated
+        };
+        VALUE timeout_exception = rb_class_new_instance(3, timeout_argv, rb_eMQuickJSTimeoutError);
+        rb_exc_raise(timeout_exception);
     }
 
     // Check for exception
@@ -746,10 +817,14 @@ static VALUE sandbox_eval(VALUE self, VALUE code_str) {
             }
         }
 
-        // Create the appropriate error with message and stack
-        VALUE argv[2] = { rb_message, rb_stack };
+        // Create console output strings
+        VALUE console_output = rb_str_new(wrapper->console_output, wrapper->console_output_len);
+        VALUE console_truncated = wrapper->console_truncated ? Qtrue : Qfalse;
+
+        // Create the appropriate error with message, stack, and console output
+        VALUE argv[4] = { rb_message, rb_stack, console_output, console_truncated };
         VALUE error_class = is_syntax_error ? rb_eMQuickJSSyntaxError : rb_eMQuickJSJavaScriptError;
-        VALUE exception = rb_class_new_instance(2, argv, error_class);
+        VALUE exception = rb_class_new_instance(4, argv, error_class);
         rb_exc_raise(exception);
     }
 
@@ -813,6 +888,9 @@ void Init_mquickjs_native(void) {
     rb_eMQuickJSJavaScriptError = rb_const_get(rb_cMQuickJS, rb_intern("JavaScriptError"));
     rb_eMQuickJSMemoryLimitError = rb_const_get(rb_cMQuickJS, rb_intern("MemoryLimitError"));
     rb_eMQuickJSTimeoutError = rb_const_get(rb_cMQuickJS, rb_intern("TimeoutError"));
+    rb_eMQuickJSHTTPBlockedError = rb_const_get(rb_cMQuickJS, rb_intern("HTTPBlockedError"));
+    rb_eMQuickJSHTTPLimitError = rb_const_get(rb_cMQuickJS, rb_intern("HTTPLimitError"));
+    rb_eMQuickJSHTTPError = rb_const_get(rb_cMQuickJS, rb_intern("HTTPError"));
 
     // Define allocation and methods
     rb_define_alloc_func(rb_cSandbox, sandbox_alloc);
