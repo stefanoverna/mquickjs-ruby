@@ -719,7 +719,18 @@ static VALUE sandbox_eval(VALUE self, VALUE code_str) {
 
     // Check for timeout
     if (wrapper->timed_out) {
-        rb_raise(rb_eMQuickJSTimeoutError, "JavaScript execution timeout exceeded");
+        // Create console output strings before raising
+        VALUE console_output = rb_str_new(wrapper->console_output, wrapper->console_output_len);
+        VALUE console_truncated = wrapper->console_truncated ? Qtrue : Qfalse;
+
+        // Create timeout error with console output
+        VALUE timeout_argv[3] = {
+            rb_str_new_cstr("JavaScript execution timeout exceeded"),
+            console_output,
+            console_truncated
+        };
+        VALUE timeout_exception = rb_class_new_instance(3, timeout_argv, rb_eMQuickJSTimeoutError);
+        rb_exc_raise(timeout_exception);
     }
 
     // Check for exception
@@ -746,10 +757,14 @@ static VALUE sandbox_eval(VALUE self, VALUE code_str) {
             }
         }
 
-        // Create the appropriate error with message and stack
-        VALUE argv[2] = { rb_message, rb_stack };
+        // Create console output strings
+        VALUE console_output = rb_str_new(wrapper->console_output, wrapper->console_output_len);
+        VALUE console_truncated = wrapper->console_truncated ? Qtrue : Qfalse;
+
+        // Create the appropriate error with message, stack, and console output
+        VALUE argv[4] = { rb_message, rb_stack, console_output, console_truncated };
         VALUE error_class = is_syntax_error ? rb_eMQuickJSSyntaxError : rb_eMQuickJSJavaScriptError;
-        VALUE exception = rb_class_new_instance(2, argv, error_class);
+        VALUE exception = rb_class_new_instance(4, argv, error_class);
         rb_exc_raise(exception);
     }
 
