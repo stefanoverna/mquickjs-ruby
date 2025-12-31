@@ -64,7 +64,7 @@ class TestMQuickJS < Minitest::Test
   end
 
   def test_javascript_error
-    error = assert_raises(MQuickJS::JavaScriptError) do
+    error = assert_raises(MQuickJS::JavascriptError) do
       MQuickJS.eval("throw new Error('test error')")
     end
     assert_match(/Error/, error.message)
@@ -91,7 +91,7 @@ class TestMQuickJS < Minitest::Test
     begin
       MQuickJS.eval(code, memory_limit: 15_000) # Small but valid limit
       # If it doesn't raise, that's ok - mquickjs might handle it gracefully
-    rescue MQuickJS::MemoryLimitError, MQuickJS::JavaScriptError
+    rescue MQuickJS::MemoryLimitError, MQuickJS::JavascriptError
       # Expected - either out of memory or JS error
     end
   end
@@ -301,7 +301,7 @@ class TestMQuickJS < Minitest::Test
   # Tests for console output in exceptions
 
   def test_javascript_error_includes_console_output
-    error = assert_raises(MQuickJS::JavaScriptError) do
+    error = assert_raises(MQuickJS::JavascriptError) do
       MQuickJS.eval("console.log('before error'); console.log('step 2'); throw new Error('test error')")
     end
     assert_match(/Error/, error.message)
@@ -310,7 +310,7 @@ class TestMQuickJS < Minitest::Test
   end
 
   def test_javascript_error_empty_console_output
-    error = assert_raises(MQuickJS::JavaScriptError) do
+    error = assert_raises(MQuickJS::JavascriptError) do
       MQuickJS.eval("throw new Error('test error')")
     end
     assert_match(/Error/, error.message)
@@ -348,7 +348,7 @@ class TestMQuickJS < Minitest::Test
 
   def test_javascript_error_with_truncated_console_output
     sandbox = MQuickJS::Sandbox.new(console_log_max_size: 50)
-    error = assert_raises(MQuickJS::JavaScriptError) do
+    error = assert_raises(MQuickJS::JavascriptError) do
       # Generate more than 50 bytes of console output before error
       sandbox.eval("for(var i = 0; i < 10; i++) console.log('line ' + i); throw new Error('test')")
     end

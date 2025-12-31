@@ -68,7 +68,7 @@ module MQuickJS
     # @param code [String] JavaScript code to execute
     # @return [Result] Result object with value, console_output, etc.
     # @raise [SyntaxError] Invalid JavaScript syntax
-    # @raise [JavaScriptError] JavaScript runtime error
+    # @raise [JavascriptError] JavaScript runtime error
     # @raise [MemoryLimitError] Memory limit exceeded
     # @raise [TimeoutError] Execution timeout
     # @raise [HTTPError] HTTP security violation (when HTTP is enabled)

@@ -71,7 +71,12 @@ Useful for evaluating user scripts, processing webhooks, executing templates, or
     - [Isolated Global Scope](#isolated-global-scope)
   - [Error Handling](#error-handling)
     - [MQuickJS::SyntaxError](#mquickjssyntaxerror)
-    - [MQuickJS::JavaScriptError](#mquickjsjavascripterror)
+    - [MQuickJS::JavascriptError](#mquickjsjavascripterror)
+    - [MQuickJS::TimeoutError](#mquickjstimeouterror)
+    - [MQuickJS::MemoryLimitError](#mquickjsmemorylimiterror)
+    - [MQuickJS::HTTPBlockedError](#mquickjshttpblockederror)
+    - [MQuickJS::HTTPLimitError](#mquickjshttplimiterror)
+    - [MQuickJS::HTTPError](#mquickjshttperror)
 - [API Reference](#api-reference)
   - [MQuickJS.eval(code, options = {})](#mquickjsevalcode-options--)
   - [MQuickJS::Sandbox.new(options = {})](#mquickjssandboxnewoptions--)
@@ -303,7 +308,7 @@ end
 # Runtime errors
 begin
   sandbox.eval('throw new Error("Something went wrong")')
-rescue MQuickJS::JavaScriptError => e
+rescue MQuickJS::JavascriptError => e
   puts "JavaScript error: #{e.message}"
 end
 ```
@@ -900,7 +905,7 @@ begin
 rescue MQuickJS::SyntaxError => e
   # JavaScript syntax error
   puts "Invalid syntax: #{e.message}"
-rescue MQuickJS::JavaScriptError => e
+rescue MQuickJS::JavascriptError => e
   # JavaScript runtime error (throw, ReferenceError, etc.)
   puts "Runtime error: #{e.message}"
 rescue MQuickJS::MemoryLimitError => e
@@ -962,7 +967,7 @@ sandbox.eval("function() {}")
 # => SyntaxError: function name expected
 ```
 
-#### MQuickJS::JavaScriptError
+#### MQuickJS::JavascriptError
 
 Raised when JavaScript code throws an error at runtime. This includes explicit `throw` statements and built-in errors like `TypeError`, `ReferenceError`, etc.
 
@@ -983,7 +988,7 @@ begin
     }
     processUser(null);  // Will throw TypeError
   JS
-rescue MQuickJS::JavaScriptError => e
+rescue MQuickJS::JavascriptError => e
   puts e.message
   # => "TypeError: cannot read property 'name' of null"
 
@@ -1009,7 +1014,7 @@ begin
     }
     outerFunc();
   JS
-rescue MQuickJS::JavaScriptError => e
+rescue MQuickJS::JavascriptError => e
   puts "Error: #{e.message}"
   puts "Stack trace:"
   e.stack.each_line { |line| puts "  #{line}" }
@@ -1041,7 +1046,7 @@ sandbox.eval("throw new Error('something went wrong')")
 # => Error: something went wrong
 ```
 
-**Error types captured as JavaScriptError:**
+**Error types captured as JavascriptError:**
 
 | JavaScript Error | Description                                                  |
 | ---------------- | ------------------------------------------------------------ |
@@ -1058,7 +1063,7 @@ sandbox.eval("throw new Error('something went wrong')")
 ```ruby
 begin
   sandbox.eval(user_code)
-rescue MQuickJS::JavaScriptError => e
+rescue MQuickJS::JavascriptError => e
   # Parse the error type from the message
   error_type = e.message.split(':').first  # "TypeError", "ReferenceError", etc.
 
@@ -1091,7 +1096,7 @@ begin
     }
     validateAge("twenty");
   JS
-rescue MQuickJS::JavaScriptError => e
+rescue MQuickJS::JavascriptError => e
   puts e.message
   # => "TypeError: age must be a number, got string"
 end
@@ -1255,7 +1260,7 @@ Execute JavaScript code in the sandbox.
 
 **Raises:**
 - `MQuickJS::SyntaxError`: Invalid JavaScript syntax
-- `MQuickJS::JavaScriptError`: JavaScript runtime error
+- `MQuickJS::JavascriptError`: JavaScript runtime error
 - `MQuickJS::MemoryLimitError`: Memory limit exceeded
 - `MQuickJS::TimeoutError`: Execution timeout
 

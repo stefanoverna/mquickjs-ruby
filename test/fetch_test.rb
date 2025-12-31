@@ -290,7 +290,7 @@ class FetchTest < Minitest::Test
   # ============================================================================
 
   def test_error_missing_url
-    error = assert_raises(MQuickJS::JavaScriptError) do
+    error = assert_raises(MQuickJS::JavascriptError) do
       @sandbox.eval("fetch()")
     end
 
@@ -301,7 +301,7 @@ class FetchTest < Minitest::Test
     sandbox = MQuickJS::Sandbox.new
     # No http: option set
 
-    error = assert_raises(MQuickJS::JavaScriptError) do
+    error = assert_raises(MQuickJS::JavascriptError) do
       sandbox.eval("fetch('https://example.com')")
     end
 
@@ -421,7 +421,7 @@ class FetchHighLevelAPITest < Minitest::Test
   def test_sandbox_without_http_option_disables_fetch
     sandbox = MQuickJS::Sandbox.new
 
-    error = assert_raises(MQuickJS::JavaScriptError) do
+    error = assert_raises(MQuickJS::JavascriptError) do
       sandbox.eval("fetch('https://example.com')")
     end
 

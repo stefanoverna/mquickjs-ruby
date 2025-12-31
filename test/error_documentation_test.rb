@@ -81,39 +81,39 @@ class ErrorDocumentationTest < Minitest::Test
   end
 
   # ==========================================================================
-  # JavaScriptError Tests
+  # JavascriptError Tests
   # ==========================================================================
 
   def test_javascript_error_undefined_variable
-    error = assert_raises(MQuickJS::JavaScriptError) do
+    error = assert_raises(MQuickJS::JavascriptError) do
       @sandbox.eval("undefinedVariable")
     end
     assert_equal "ReferenceError: variable 'undefinedVariable' is not defined", error.message
   end
 
   def test_javascript_error_null_property_access
-    error = assert_raises(MQuickJS::JavaScriptError) do
+    error = assert_raises(MQuickJS::JavascriptError) do
       @sandbox.eval("null.foo")
     end
     assert_equal "TypeError: cannot read property 'foo' of null", error.message
   end
 
   def test_javascript_error_calling_non_function
-    error = assert_raises(MQuickJS::JavaScriptError) do
+    error = assert_raises(MQuickJS::JavascriptError) do
       @sandbox.eval("var x = {}; x.foo()")
     end
     assert_equal "TypeError: not a function", error.message
   end
 
   def test_javascript_error_explicit_throw
-    error = assert_raises(MQuickJS::JavaScriptError) do
+    error = assert_raises(MQuickJS::JavascriptError) do
       @sandbox.eval("throw new Error('something went wrong')")
     end
     assert_equal "Error: something went wrong", error.message
   end
 
   def test_javascript_error_null_name_property
-    error = assert_raises(MQuickJS::JavaScriptError) do
+    error = assert_raises(MQuickJS::JavascriptError) do
       @sandbox.eval(<<~JS)
         function processUser(user) {
           return user.name.toUpperCase();
@@ -125,7 +125,7 @@ class ErrorDocumentationTest < Minitest::Test
   end
 
   def test_javascript_error_custom_type_error
-    error = assert_raises(MQuickJS::JavaScriptError) do
+    error = assert_raises(MQuickJS::JavascriptError) do
       @sandbox.eval(<<~JS)
         function validateAge(age) {
           if (typeof age !== 'number') {
@@ -140,7 +140,7 @@ class ErrorDocumentationTest < Minitest::Test
   end
 
   def test_javascript_error_custom_range_error
-    error = assert_raises(MQuickJS::JavaScriptError) do
+    error = assert_raises(MQuickJS::JavascriptError) do
       @sandbox.eval("throw new RangeError('value out of range')")
     end
     assert_equal "RangeError: value out of range", error.message
@@ -151,7 +151,7 @@ class ErrorDocumentationTest < Minitest::Test
   # ==========================================================================
 
   def test_error_type_can_be_parsed_from_message
-    error = assert_raises(MQuickJS::JavaScriptError) do
+    error = assert_raises(MQuickJS::JavascriptError) do
       @sandbox.eval("undefinedVariable")
     end
     error_type = error.message.split(":").first
@@ -164,7 +164,7 @@ class ErrorDocumentationTest < Minitest::Test
   # ==========================================================================
 
   def test_javascript_error_has_stack_attribute
-    error = assert_raises(MQuickJS::JavaScriptError) do
+    error = assert_raises(MQuickJS::JavascriptError) do
       @sandbox.eval("throw new Error('test')")
     end
     assert_respond_to error, :stack
@@ -173,7 +173,7 @@ class ErrorDocumentationTest < Minitest::Test
   end
 
   def test_stack_trace_shows_function_names
-    error = assert_raises(MQuickJS::JavaScriptError) do
+    error = assert_raises(MQuickJS::JavascriptError) do
       @sandbox.eval(<<~JS)
         function innerFunc() {
           throw new Error("inner error");
@@ -189,7 +189,7 @@ class ErrorDocumentationTest < Minitest::Test
   end
 
   def test_stack_trace_shows_line_numbers
-    error = assert_raises(MQuickJS::JavaScriptError) do
+    error = assert_raises(MQuickJS::JavascriptError) do
       @sandbox.eval(<<~JS)
         var x = 1;
         var y = 2;

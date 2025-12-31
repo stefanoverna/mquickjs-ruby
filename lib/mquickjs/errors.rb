@@ -21,7 +21,7 @@ module MQuickJS
   end
 
   # Raised when JavaScript code throws an error
-  class JavaScriptError < Error
+  class JavascriptError < Error
     attr_reader :stack, :console_output
 
     def initialize(message, stack = nil, console_output = nil, console_truncated = false)

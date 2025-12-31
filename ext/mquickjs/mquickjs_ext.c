@@ -15,7 +15,7 @@ static VALUE rb_cMQuickJS;
 static VALUE rb_cSandbox;
 static VALUE rb_cResult;
 static VALUE rb_eMQuickJSSyntaxError;
-static VALUE rb_eMQuickJSJavaScriptError;
+static VALUE rb_eMQuickJSJavascriptError;
 static VALUE rb_eMQuickJSMemoryLimitError;
 static VALUE rb_eMQuickJSTimeoutError;
 
@@ -803,7 +803,7 @@ static VALUE sandbox_eval(VALUE self, VALUE code_str) {
         int class_id = JS_GetClassID(wrapper->ctx, exc);
         int is_syntax_error = (class_id == 13 || (msg && strncmp(msg, "SyntaxError", 11) == 0));
 
-        // Extract the stack trace for both SyntaxError and JavaScriptError
+        // Extract the stack trace for both SyntaxError and JavascriptError
         VALUE rb_message = rb_str_new_cstr(msg ? msg : "JavaScript error");
         VALUE rb_stack = Qnil;
 
@@ -823,7 +823,7 @@ static VALUE sandbox_eval(VALUE self, VALUE code_str) {
 
         // Create the appropriate error with message, stack, and console output
         VALUE argv[4] = { rb_message, rb_stack, console_output, console_truncated };
-        VALUE error_class = is_syntax_error ? rb_eMQuickJSSyntaxError : rb_eMQuickJSJavaScriptError;
+        VALUE error_class = is_syntax_error ? rb_eMQuickJSSyntaxError : rb_eMQuickJSJavascriptError;
         VALUE exception = rb_class_new_instance(4, argv, error_class);
         rb_exc_raise(exception);
     }
@@ -885,7 +885,7 @@ void Init_mquickjs_native(void) {
 
     // Define exceptions
     rb_eMQuickJSSyntaxError = rb_const_get(rb_cMQuickJS, rb_intern("SyntaxError"));
-    rb_eMQuickJSJavaScriptError = rb_const_get(rb_cMQuickJS, rb_intern("JavaScriptError"));
+    rb_eMQuickJSJavascriptError = rb_const_get(rb_cMQuickJS, rb_intern("JavascriptError"));
     rb_eMQuickJSMemoryLimitError = rb_const_get(rb_cMQuickJS, rb_intern("MemoryLimitError"));
     rb_eMQuickJSTimeoutError = rb_const_get(rb_cMQuickJS, rb_intern("TimeoutError"));
     rb_eMQuickJSHTTPBlockedError = rb_const_get(rb_cMQuickJS, rb_intern("HTTPBlockedError"));
