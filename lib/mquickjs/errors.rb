@@ -37,7 +37,19 @@ module MQuickJS
   end
 
   # Raised when memory limit is exceeded
-  class MemoryLimitError < Error; end
+  class MemoryLimitError < Error
+    attr_reader :console_output
+
+    def initialize(message = "Memory limit exceeded", console_output = nil, console_truncated = false)
+      super(message)
+      @console_output = console_output || ""
+      @console_truncated = console_truncated
+    end
+
+    def console_truncated?
+      @console_truncated
+    end
+  end
 
   # Raised when execution timeout is exceeded
   class TimeoutError < Error
@@ -56,13 +68,49 @@ module MQuickJS
   end
 
   # Raised when HTTP request is blocked by allowlist/denylist
-  class HTTPBlockedError < Error; end
+  class HTTPBlockedError < Error
+    attr_reader :console_output
+
+    def initialize(message, console_output = nil, console_truncated = false)
+      super(message)
+      @console_output = console_output || ""
+      @console_truncated = console_truncated
+    end
+
+    def console_truncated?
+      @console_truncated
+    end
+  end
 
   # Raised when HTTP request limit is exceeded
-  class HTTPLimitError < Error; end
+  class HTTPLimitError < Error
+    attr_reader :console_output
+
+    def initialize(message, console_output = nil, console_truncated = false)
+      super(message)
+      @console_output = console_output || ""
+      @console_truncated = console_truncated
+    end
+
+    def console_truncated?
+      @console_truncated
+    end
+  end
 
   # Raised when HTTP request fails
-  class HTTPError < Error; end
+  class HTTPError < Error
+    attr_reader :console_output
+
+    def initialize(message, console_output = nil, console_truncated = false)
+      super(message)
+      @console_output = console_output || ""
+      @console_truncated = console_truncated
+    end
+
+    def console_truncated?
+      @console_truncated
+    end
+  end
 
   # Raised when invalid arguments are passed
   class ArgumentError < Error; end
